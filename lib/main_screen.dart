@@ -38,7 +38,7 @@ class _CalculatorState extends State<Calculator> {
   List<CalculationHistory> _history = [];
   double _fontSize = 60.0;
   ScrollController _scrollController = ScrollController();
-
+  String _result = "";
   @override
   void initState() {
     super.initState();
@@ -66,18 +66,27 @@ class _CalculatorState extends State<Calculator> {
 
   void _onButtonPressed(String buttonText) {
     setState(() {
-      if (buttonText == "C") {
+      if (buttonText == "AC") {
         _output = "";
         _equation = "";
+        _result = "";
         _fontSize = 60.0;
       } else if (buttonText == "=") {
-        _equation = _output;
-        try {
-          var result = _evaluateExpression(_output);
-          _output = result.toStringAsFixed(2);
-          _addToHistory();
-        } catch (e) {
-          _output = "Error";
+        if (_result.isNotEmpty) {
+          // If there's already a result, move it to the calculation space
+          _output = _result;
+          _result = "";
+        } else {
+          _equation = _output;
+          try {
+            var result = _evaluateExpression(_output);
+            _result = result.toStringAsFixed(2);
+            if (_result != "Error") {
+              _showSaveSnackBar();
+            }
+          } catch (e) {
+            _result = "Error";
+          }
         }
       } else if (buttonText == "<") {
         if (_output.isNotEmpty) {
@@ -85,15 +94,119 @@ class _CalculatorState extends State<Calculator> {
         }
       } else {
         _output += buttonText;
+        _result = ""; // Clear the result when new input is added
       }
       _updateFontSize();
     });
   }
 
-  void _scrollToEnd() {
-    Future.delayed(Duration(milliseconds: 100), () {
-      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-    });
+  void _showSaveSnackBar() {
+    final snackBar = SnackBar(
+      content: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: "Enter title",
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) => _currentTitle = value,
+            ),
+          ),
+          TextButton(
+            child: Text("Save"),
+            onPressed: () {
+              _addToHistory();
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
+          TextButton(
+            child: Text("Cancel"),
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
+        ],
+      ),
+      duration: Duration(days: 365), // Long duration to keep it open
+      behavior: SnackBarBehavior.floating, // Make the SnackBar float
+      margin: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom + 10,
+        left: 10,
+        right: 10,
+      ), // Adjust margin to appear above keyboard
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
+
+  void _showHistory() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Calculation History"),
+          content: Container(
+            width: double.maxFinite,
+            child: _history.isEmpty
+                ? Center(child: Text("No history available"))
+                : ListView.builder(
+                    itemCount: _history.length,
+                    itemBuilder: (context, index) {
+                      final item = _history[index];
+                      return ListTile(
+                        title: Text(item.title),
+                        subtitle: Text("${item.equation} = ${item.result}"),
+                        onTap: () {
+                          setState(() {
+                            _output = item.equation;
+                            _result = item.result;
+                          });
+                          Navigator.of(context).pop();
+                        },
+                        visualDensity: VisualDensity(
+                            vertical: -4), // Reduce vertical padding
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            if (_history.isNotEmpty)
+              TextButton(
+                child: Text("Clear History"),
+                onPressed: () {
+                  setState(() {
+                    _history.clear();
+                    _saveHistory();
+                  });
+                  Navigator.of(context).pop();
+                },
+              ),
+            TextButton(
+              child: Text("Close"),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _addToHistory() {
+    if (_currentTitle.isNotEmpty) {
+      setState(() {
+        _history.insert(
+          0,
+          CalculationHistory(
+            title: _currentTitle,
+            equation: _equation,
+            result: _result,
+          ),
+        );
+        _currentTitle = "";
+      });
+      _saveHistory();
+    }
   }
 
   void _loadHistory() async {
@@ -111,22 +224,6 @@ class _CalculatorState extends State<Calculator> {
     final historyJson =
         _history.map((item) => jsonEncode(item.toJson())).toList();
     await prefs.setStringList('history', historyJson);
-  }
-
-  void _addToHistory() {
-    if (_currentTitle.isNotEmpty) {
-      setState(() {
-        _history.insert(
-            0,
-            CalculationHistory(
-              title: _currentTitle,
-              equation: _equation,
-              result: _output,
-            ));
-        _currentTitle = "";
-      });
-      _saveHistory();
-    }
   }
 
   double _evaluateExpression(String expression) {
@@ -170,7 +267,7 @@ class _CalculatorState extends State<Calculator> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false, // Prevent resizing when keyboard opens
+      resizeToAvoidBottomInset: false, // Changed back to false
       body: _buildCalculatorUI(context, _isDarkMode),
     );
   }
@@ -190,19 +287,6 @@ class _CalculatorState extends State<Calculator> {
             padding: EdgeInsets.only(top: topPadding, left: 6, right: 6),
             child: Row(
               children: [
-                Expanded(
-                  child: TextField(
-                    style: TextStyle(color: textColor),
-                    decoration: InputDecoration(
-                      hintText: "Enter title",
-                      hintStyle: TextStyle(color: textColor.withOpacity(0.5)),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    onChanged: (value) => _currentTitle = value,
-                  ),
-                ),
                 IconButton(
                   icon: Icon(Icons.history, color: textColor),
                   onPressed: _showHistory,
@@ -220,7 +304,26 @@ class _CalculatorState extends State<Calculator> {
             ),
           ),
           Expanded(
-            child: CalculatorDisplay(text: _output),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                CalculatorDisplay(text: _output, textColor: textColor),
+                if (_result.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        "= $_result",
+                        style: TextStyle(fontSize: 24, color: textColor),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Divider(
+            thickness: 3,
           ),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 20, vertical: 5.0),
@@ -229,11 +332,11 @@ class _CalculatorState extends State<Calculator> {
               children: [
                 Column(
                   children: [
-                    _buildButtonRow(['C', '%', 'x'], buttonColor, textColor),
+                    _buildButtonRow(
+                        ['AC', '%', 'x'], buttonColor, textColor, orangeColor),
                     _buildButtonRow(['7', '8', '9'], buttonColor, textColor),
                     _buildButtonRow(['4', '5', '6'], buttonColor, textColor),
-                    _buildButtonRow(
-                        ['1', '2', '3'], buttonColor, textColor, orangeColor),
+                    _buildButtonRow(['1', '2', '3'], buttonColor, textColor),
                     _buildButtonRow(['.', '0', '<'], buttonColor, textColor),
                   ],
                 ),
@@ -242,7 +345,7 @@ class _CalculatorState extends State<Calculator> {
                   children: [
                     _buildButtonColumn(['÷', '+', '-'], buttonColor, textColor),
                     Container(
-                      child: _buildButton('=', buttonColor, textColor),
+                      child: _buildButton('=', orangeColor, Colors.white),
                       height: 156,
                       width: 75,
                     ),
@@ -260,15 +363,15 @@ class _CalculatorState extends State<Calculator> {
       List<String> buttons, Color buttonColor, Color textColor,
       [Color? specialColor]) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: buttons
-            .map((button) => _buildButton(
-                button,
-                button == '=' ? (specialColor ?? buttonColor) : buttonColor,
-                textColor))
-            .toList(),
+        children: buttons.map((button) {
+          Color currentButtonColor =
+              button == 'AC' ? specialColor ?? Colors.orange : buttonColor;
+          Color currentTextColor = button == 'AC' ? Colors.white : textColor;
+          return _buildButton(button, currentButtonColor, currentTextColor);
+        }).toList(),
       ),
     );
   }
@@ -280,7 +383,7 @@ class _CalculatorState extends State<Calculator> {
         return Column(
           children: [
             _buildButton(button, buttonColor, textColor),
-            SizedBox(height: 10), // Add spacing between buttons in the column
+            SizedBox(height: 5), // Reduced space between buttons
           ],
         );
       }).toList(),
@@ -289,8 +392,8 @@ class _CalculatorState extends State<Calculator> {
 
   Widget _buildButton(String text, Color buttonColor, Color textColor) {
     return Container(
-      width: 88,
-      height: 75,
+      width: 88, // Adjusted width
+      height: 80, // Adjusted height
       child: Card(
         elevation: 3,
         shadowColor: Colors.white,
@@ -299,7 +402,9 @@ class _CalculatorState extends State<Calculator> {
                 borderRadius: BorderRadius.circular(
                     45), // Rectangular shape with sharp corners
               )
-            : const CircleBorder(), // Makes the button circular
+            : RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(30)), // Makes the button circular
 
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
@@ -309,58 +414,21 @@ class _CalculatorState extends State<Calculator> {
                     borderRadius: BorderRadius.circular(
                         45), // Rectangular shape with sharp corners
                   )
-                : const CircleBorder(), // Makes the button circular
+                : RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ), // Makes the button circular
           ),
           child: Text(
             text,
             style: TextStyle(
               fontSize: 24,
+              fontStyle: text == 'AC' ? FontStyle.italic : null,
               color: text == '=' ? Colors.white : textColor,
             ),
           ),
           onPressed: () => _onButtonPressed(text),
         ),
       ),
-    );
-  }
-
-  void _showHistory() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Calculation History"),
-          content: Container(
-            width: double.maxFinite,
-            child: ListView.builder(
-              itemCount: _history.length,
-              itemBuilder: (context, index) {
-                final item = _history[index];
-                return ListTile(
-                  title: Text(item.title),
-                  subtitle: Text("${item.equation} = ${item.result}"),
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              child: Text("Clear History"),
-              onPressed: () {
-                setState(() {
-                  _history.clear();
-                  _saveHistory();
-                });
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: Text("Close"),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        );
-      },
     );
   }
 }
@@ -441,11 +509,13 @@ class _FadingTextPainter extends CustomPainter {
 class CalculatorDisplay extends StatefulWidget {
   final String text;
   final double maxFontSize;
+  final Color textColor;
 
   const CalculatorDisplay({
     Key? key,
     required this.text,
     this.maxFontSize = 60,
+    required this.textColor,
   }) : super(key: key);
 
   @override
@@ -481,17 +551,19 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
 
   @override
   Widget build(BuildContext context) {
+    Color textColor =
+        _CalculatorState()._isDarkMode ? Colors.white : Colors.black;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth - 40; // Left and right padding
+        final maxWidth = constraints.maxWidth - 40;
         double currentFontSize = widget.maxFontSize;
-        double textWidth;
+        double textWidth = double.infinity; // Initialize textWidth
 
         do {
           final textStyle = TextStyle(
             fontSize: currentFontSize,
             fontWeight: FontWeight.bold,
-            color: Colors.black,
+            color: _CalculatorState()._isDarkMode ? Colors.white : Colors.black,
           );
 
           final textPainter = TextPainter(
@@ -505,8 +577,8 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
             currentFontSize -= 1;
           }
 
-          if (currentFontSize < minFontSize) {
-            currentFontSize = minFontSize;
+          if (currentFontSize < 15) {
+            currentFontSize = 15;
             break;
           }
         } while (textWidth > maxWidth);
@@ -526,18 +598,16 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
                   child: Text(
                     displayText,
                     style: TextStyle(
-                      fontSize: currentFontSize,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                        fontSize: currentFontSize,
+                        fontWeight: FontWeight.bold,
+                        color: widget.textColor),
                     maxLines: 1,
                     textAlign: TextAlign.right,
                   ),
                 ),
               ),
               SizedBox(
-                width:
-                    currentFontSize * 0.6, // Fixed-width for the cursor space
+                width: currentFontSize * 0.2,
                 child: _cursorVisible
                     ? Text(
                         '|',
@@ -547,7 +617,7 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
                           color: Colors.orange,
                         ),
                       )
-                    : Container(), // Empty container when cursor is not visible
+                    : Container(),
               ),
             ],
           ),
