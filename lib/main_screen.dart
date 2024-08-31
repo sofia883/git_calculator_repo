@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:ui' as ui;
+import 'dart:math' as math;
 
 class CalculationHistory {
   final String title;
@@ -39,6 +40,9 @@ class _CalculatorState extends State<Calculator> {
   double _fontSize = 60.0;
   ScrollController _scrollController = ScrollController();
   String _result = "";
+  bool _showAdditionalOperations = false;
+  bool _isRadMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +68,12 @@ class _CalculatorState extends State<Calculator> {
     });
   }
 
+  void _toggleExtraButton() {
+    setState(() {
+      _showAdditionalOperations = !_showAdditionalOperations;
+    });
+  }
+
   void _onButtonPressed(String buttonText) {
     setState(() {
       if (buttonText == "AC") {
@@ -73,7 +83,6 @@ class _CalculatorState extends State<Calculator> {
         _fontSize = 60.0;
       } else if (buttonText == "=") {
         if (_result.isNotEmpty) {
-          // If there's already a result, move it to the calculation space
           _output = _result;
           _result = "";
         } else {
@@ -88,16 +97,76 @@ class _CalculatorState extends State<Calculator> {
             _result = "Error";
           }
         }
-      } else if (buttonText == "<") {
+      } else if (buttonText == "⌫") {
         if (_output.isNotEmpty) {
           _output = _output.substring(0, _output.length - 1);
         }
+      } else if (["sin", "cos", "tan", "log", "ln", "√", "inv"]
+          .contains(buttonText)) {
+        _output += "$buttonText(";
+      } else if (buttonText == "rad" || buttonText == "deg") {
+        _isRadMode = buttonText == "rad";
       } else {
         _output += buttonText;
-        _result = ""; // Clear the result when new input is added
+        _result = "";
       }
       _updateFontSize();
     });
+  }
+
+  double _evaluateExpression(String expression) {
+    expression = expression.replaceAll('x', '*');
+    expression = expression.replaceAll('÷', '/');
+    expression = expression.replaceAll('π', math.pi.toString());
+    expression = expression.replaceAll('e', math.e.toString());
+
+    // Handle trigonometric and logarithmic functions
+    expression = _handleMathFunctions(expression);
+
+    List<String> tokens = expression.split(RegExp(r'(\+|\-|\*|\/)'));
+    List<String> operators = expression
+        .split(RegExp(r'[^+\-*/]+'))
+        .where((s) => s.isNotEmpty)
+        .toList();
+
+    List<double> numbers = tokens.map((t) => double.tryParse(t) ?? 0).toList();
+
+    // Perform multiplication and division first
+    for (int i = 0; i < operators.length; i++) {
+      if (operators[i] == '*' || operators[i] == '/') {
+        double result = operators[i] == '*'
+            ? numbers[i] * numbers[i + 1]
+            : numbers[i] / numbers[i + 1];
+        numbers[i] = result;
+        numbers.removeAt(i + 1);
+        operators.removeAt(i);
+        i--;
+      }
+    }
+
+    // Perform addition and subtraction
+    double result = numbers[0];
+    for (int i = 0; i < operators.length; i++) {
+      if (operators[i] == '+') {
+        result += numbers[i + 1];
+      } else if (operators[i] == '-') {
+        result -= numbers[i + 1];
+      }
+    }
+
+    return result;
+  }
+
+  String _handleMathFunctions(String expression) {
+    expression = expression.replaceAllMapped(RegExp(r'sin\((.*?)\)'),
+        (match) => math.sin(double.parse(match.group(1)!)).toString());
+    expression = expression.replaceAllMapped(RegExp(r'cos\((.*?)\)'),
+        (match) => math.cos(double.parse(match.group(1)!)).toString());
+    expression = expression.replaceAllMapped(RegExp(r'tan\((.*?)\)'),
+        (match) => math.tan(double.parse(match.group(1)!)).toString());
+    expression = expression.replaceAllMapped(RegExp(r'log\((.*?)\)'),
+        (match) => math.log(double.parse(match.group(1)!)).toString());
+    return expression;
   }
 
   void _showSaveSnackBar() {
@@ -226,83 +295,36 @@ class _CalculatorState extends State<Calculator> {
     await prefs.setStringList('history', historyJson);
   }
 
-  double _evaluateExpression(String expression) {
-    expression = expression.replaceAll('x', '*');
-    expression = expression.replaceAll('÷', '/');
-
-    List<String> tokens = expression.split(RegExp(r'(\+|\-|\*|\/)'));
-    List<String> operators = expression
-        .split(RegExp(r'[^+\-*/]+'))
-        .where((s) => s.isNotEmpty)
-        .toList();
-
-    List<double> numbers = tokens.map((t) => double.tryParse(t) ?? 0).toList();
-
-    // Perform multiplication and division first
-    for (int i = 0; i < operators.length; i++) {
-      if (operators[i] == '*' || operators[i] == '/') {
-        double result = operators[i] == '*'
-            ? numbers[i] * numbers[i + 1]
-            : numbers[i] / numbers[i + 1];
-        numbers[i] = result;
-        numbers.removeAt(i + 1);
-        operators.removeAt(i);
-        i--;
-      }
-    }
-
-    // Perform addition and subtraction
-    double result = numbers[0];
-    for (int i = 0; i < operators.length; i++) {
-      if (operators[i] == '+') {
-        result += numbers[i + 1];
-      } else if (operators[i] == '-') {
-        result -= numbers[i + 1];
-      }
-    }
-
-    return result;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false, // Changed back to false
-      body: _buildCalculatorUI(context, _isDarkMode),
+      appBar: AppBar(
+        leading: Icon(Icons.arrow_back),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.calculate),
+            onPressed: _toggleExtraButton, // Toggle extra button visibility
+          ),
+          Icon(Icons.grid_4x4),
+          Icon(Icons.more_vert),
+        ],
+        backgroundColor: Color(0xFFFAF0E6),
+        elevation: 0,
+      ),
+      body: _buildCalculatorUI(context),
     );
   }
 
-  Widget _buildCalculatorUI(BuildContext context, bool isDark) {
-    Color bgColor = isDark ? Color(0xFF17181A) : Color(0xFFF4F5F6);
-    Color textColor = isDark ? Colors.white : Colors.black;
-    Color buttonColor = isDark ? Color(0xFF2E2F38) : Color(0xFFE9E9EA);
+  Widget _buildCalculatorUI(BuildContext context) {
+    Color bgColor = Color(0xFFFAF0E6);
+    Color textColor = Colors.black;
+    Color buttonColor = Colors.white;
     Color orangeColor = Color(0xFFFFA000);
-    final double topPadding = MediaQuery.of(context).padding.top;
 
     return Container(
       color: bgColor,
       child: Column(
         children: [
-          Container(
-            padding: EdgeInsets.only(top: topPadding, left: 6, right: 6),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(Icons.history, color: textColor),
-                  onPressed: _showHistory,
-                ),
-                IconButton(
-                  icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                      color: textColor),
-                  onPressed: () {
-                    setState(() {
-                      _isDarkMode = !_isDarkMode;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -322,40 +344,50 @@ class _CalculatorState extends State<Calculator> {
               ],
             ),
           ),
-          Divider(
-            thickness: 3,
-          ),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 5.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: Column(
               children: [
-                Column(
-                  children: [
-                    _buildButtonRow(
-                        ['AC', '%', 'x'], buttonColor, textColor, orangeColor),
-                    _buildButtonRow(['7', '8', '9'], buttonColor, textColor),
-                    _buildButtonRow(['4', '5', '6'], buttonColor, textColor),
-                    _buildButtonRow(['1', '2', '3'], buttonColor, textColor),
-                    _buildButtonRow(['.', '0', '<'], buttonColor, textColor),
-                  ],
-                ),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildButtonColumn(['÷', '+', '-'], buttonColor, textColor),
-                    Container(
-                      child: _buildButton('=', orangeColor, Colors.white),
-                      height: 156,
-                      width: 75,
-                    ),
-                  ],
-                )
+                _buildButtonGrid(buttonColor, textColor, orangeColor),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildButtonGrid(
+      Color buttonColor, Color textColor, Color orangeColor) {
+    List<List<String>> buttonLayout = [
+      ['sin', 'cos', 'tan', 'rad', _isRadMode ? 'deg' : 'rad'],
+      ['log', 'ln', '(', ')', 'inv'],
+      ['!', 'AC', '%', '⌫', '÷'],
+      ['^', '7', '8', '9', '×'],
+      ['√', '4', '5', '6', '-'],
+      ['π', '1', '2', '3', '+'],
+      ['e', '00', '0', '.', '='],
+    ];
+
+    return Column(
+      children: buttonLayout.map((row) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: row.map((button) {
+            Color currentColor = button == 'AC'
+                ? orangeColor
+                : button == '='
+                    ? orangeColor
+                    : buttonColor;
+            Color currentTextColor =
+                (button == 'AC' || button == '=') ? Colors.white : textColor;
+            return _buildButton(button, currentColor, currentTextColor);
+          }).toList(),
+        );
+      }).toList(),
     );
   }
 
@@ -367,9 +399,11 @@ class _CalculatorState extends State<Calculator> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: buttons.map((button) {
-          Color currentButtonColor =
-              button == 'AC' ? specialColor ?? Colors.orange : buttonColor;
-          Color currentTextColor = button == 'AC' ? Colors.white : textColor;
+          Color currentButtonColor = button == 'AC' || button == '='
+              ? specialColor ?? Colors.orange
+              : buttonColor;
+          Color currentTextColor =
+              (button == 'AC' || button == '=') ? Colors.white : textColor;
           return _buildButton(button, currentButtonColor, currentTextColor);
         }).toList(),
       ),
@@ -392,42 +426,25 @@ class _CalculatorState extends State<Calculator> {
 
   Widget _buildButton(String text, Color buttonColor, Color textColor) {
     return Container(
-      width: 88, // Adjusted width
-      height: 80, // Adjusted height
-      child: Card(
-        elevation: 3,
-        shadowColor: Colors.white,
-        shape: text == '='
-            ? RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(
-                    45), // Rectangular shape with sharp corners
-              )
-            : RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(30)), // Makes the button circular
-
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: text == '=' ? Colors.orange : buttonColor,
-            shape: text == '='
-                ? RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                        45), // Rectangular shape with sharp corners
-                  )
-                : RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ), // Makes the button circular
+      width: 70,
+      height: 70,
+      margin: EdgeInsets.all(2),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: buttonColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(35),
           ),
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: 24,
-              fontStyle: text == 'AC' ? FontStyle.italic : null,
-              color: text == '=' ? Colors.white : textColor,
-            ),
-          ),
-          onPressed: () => _onButtonPressed(text),
         ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: textColor,
+          ),
+        ),
+        onPressed: () => _onButtonPressed(text),
       ),
     );
   }
