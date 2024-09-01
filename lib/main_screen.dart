@@ -40,9 +40,9 @@ class _CalculatorState extends State<Calculator> {
   double _fontSize = 60.0;
   ScrollController _scrollController = ScrollController();
   String _result = "";
-  bool _showAdditionalOperations = false;
-  bool _isRadMode = false;
 
+  bool _isRadMode = false;
+  bool _showExtraButtons = false;
   @override
   void initState() {
     super.initState();
@@ -68,12 +68,6 @@ class _CalculatorState extends State<Calculator> {
     });
   }
 
-  void _toggleExtraButton() {
-    setState(() {
-      _showAdditionalOperations = !_showAdditionalOperations;
-    });
-  }
-
   void _onButtonPressed(String buttonText) {
     setState(() {
       if (buttonText == "AC") {
@@ -90,9 +84,9 @@ class _CalculatorState extends State<Calculator> {
           try {
             var result = _evaluateExpression(_output);
             _result = result.toStringAsFixed(2);
-            if (_result != "Error") {
-              _showSaveSnackBar();
-            }
+            // if (_result != "Error") {
+            //   _showSaveSnackBar();
+            // }
           } catch (e) {
             _result = "Error";
           }
@@ -169,45 +163,45 @@ class _CalculatorState extends State<Calculator> {
     return expression;
   }
 
-  void _showSaveSnackBar() {
-    final snackBar = SnackBar(
-      content: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: "Enter title",
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (value) => _currentTitle = value,
-            ),
-          ),
-          TextButton(
-            child: Text("Save"),
-            onPressed: () {
-              _addToHistory();
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
-          TextButton(
-            child: Text("Cancel"),
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
-        ],
-      ),
-      duration: Duration(days: 365), // Long duration to keep it open
-      behavior: SnackBarBehavior.floating, // Make the SnackBar float
-      margin: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 10,
-        left: 10,
-        right: 10,
-      ), // Adjust margin to appear above keyboard
-    );
+  // void _showSaveSnackBar() {
+  //   final snackBar = SnackBar(
+  //     content: Row(
+  //       children: [
+  //         Expanded(
+  //           child: TextField(
+  //             decoration: InputDecoration(
+  //               hintText: "Enter title",
+  //               border: OutlineInputBorder(),
+  //             ),
+  //             onChanged: (value) => _currentTitle = value,
+  //           ),
+  //         ),
+  //         TextButton(
+  //           child: Text("Save"),
+  //           onPressed: () {
+  //             _addToHistory();
+  //             ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  //           },
+  //         ),
+  //         TextButton(
+  //           child: Text("Cancel"),
+  //           onPressed: () {
+  //             ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  //           },
+  //         ),
+  //       ],
+  //     ),
+  //     duration: Duration(days: 365), // Long duration to keep it open
+  //     behavior: SnackBarBehavior.floating, // Make the SnackBar float
+  //     margin: EdgeInsets.only(
+  //       bottom: MediaQuery.of(context).viewInsets.bottom + 10,
+  //       left: 10,
+  //       right: 10,
+  //     ), // Adjust margin to appear above keyboard
+  //   );
 
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
-  }
+  //   ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  // }
 
   void _showHistory() {
     showDialog(
@@ -288,11 +282,23 @@ class _CalculatorState extends State<Calculator> {
     });
   }
 
+  void _toggleTheme() {
+    setState(() {
+      _isDarkMode = !_isDarkMode;
+    });
+  }
+
   void _saveHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final historyJson =
         _history.map((item) => jsonEncode(item.toJson())).toList();
     await prefs.setStringList('history', historyJson);
+  }
+
+  void _toggleExtraButtons() {
+    setState(() {
+      _showExtraButtons = !_showExtraButtons;
+    });
   }
 
   @override
@@ -302,13 +308,20 @@ class _CalculatorState extends State<Calculator> {
         leading: Icon(Icons.arrow_back),
         actions: [
           IconButton(
-            icon: Icon(Icons.calculate),
-            onPressed: _toggleExtraButton, // Toggle extra button visibility
+            icon:
+                Icon(_showExtraButtons ? Icons.expand_less : Icons.expand_more),
+            onPressed: _toggleExtraButtons,
+          ),
+          IconButton(
+            icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            onPressed: () {
+              _toggleTheme();
+            },
           ),
           Icon(Icons.grid_4x4),
           Icon(Icons.more_vert),
         ],
-        backgroundColor: Color(0xFFFAF0E6),
+        backgroundColor: _isDarkMode ? Colors.white : Colors.black,
         elevation: 0,
       ),
       body: _buildCalculatorUI(context),
@@ -316,9 +329,9 @@ class _CalculatorState extends State<Calculator> {
   }
 
   Widget _buildCalculatorUI(BuildContext context) {
-    Color bgColor = Color(0xFFFAF0E6);
-    Color textColor = Colors.black;
-    Color buttonColor = Colors.white;
+    Color bgColor = _isDarkMode ? Color(0xFFFAF0E6) : Colors.black;
+    Color textColor = _isDarkMode ? Colors.black : Colors.white;
+    Color buttonColor = _isDarkMode ? Colors.white : Colors.black;
     Color orangeColor = Color(0xFFFFA000);
 
     return Container(
@@ -346,7 +359,7 @@ class _CalculatorState extends State<Calculator> {
           ),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: _isDarkMode ? Colors.white : Colors.black,
               borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
             ),
             child: Column(
@@ -362,8 +375,21 @@ class _CalculatorState extends State<Calculator> {
 
   Widget _buildButtonGrid(
       Color buttonColor, Color textColor, Color orangeColor) {
-    List<List<String>> buttonLayout = [
-      ['sin', 'cos', 'tan', 'rad', _isRadMode ? 'deg' : 'rad'],
+    List<List<String>> basicButtons = [
+      ['AC', '%', '⌫', '÷'],
+      ['7', '8', '9', '×'],
+      ['4', '5', '6', '-'],
+      ['1', '2', '3', '+'],
+      ['00', '0', '.', '='],
+    ];
+    List<List<String>> additionalButtons = [
+      [
+        'sin'
+            'cos',
+        'tan',
+        'rad',
+        _isRadMode ? 'deg' : 'rad'
+      ],
       ['log', 'ln', '(', ')', 'inv'],
       ['!', 'AC', '%', '⌫', '÷'],
       ['^', '7', '8', '9', '×'],
@@ -371,9 +397,10 @@ class _CalculatorState extends State<Calculator> {
       ['π', '1', '2', '3', '+'],
       ['e', '00', '0', '.', '='],
     ];
-
+    List<List<String>> checkIsAdditional =
+        _showExtraButtons ? additionalButtons : basicButtons;
     return Column(
-      children: buttonLayout.map((row) {
+      children: checkIsAdditional.map((row) {
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: row.map((button) {
