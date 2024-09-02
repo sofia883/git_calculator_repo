@@ -1,565 +1,318 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
-import 'dart:ui' as ui;
-import 'dart:math' as math;
+import 'package:math_expressions/math_expressions.dart';
 
-class CalculationHistory {
-  final String title;
-  final String equation;
-  final String result;
-
-  CalculationHistory(
-      {required this.title, required this.equation, required this.result});
-
-  Map<String, dynamic> toJson() => {
-        'title': title,
-        'equation': equation,
-        'result': result,
-      };
-
-  factory CalculationHistory.fromJson(Map<String, dynamic> json) =>
-      CalculationHistory(
-        title: json['title'],
-        equation: json['equation'],
-        result: json['result'],
-      );
+class HomePage extends StatefulWidget {
+  @override
+  _HomePageState createState() => _HomePageState();
 }
 
-class Calculator extends StatefulWidget {
-  @override
-  _CalculatorState createState() => _CalculatorState();
-}
-
-class _CalculatorState extends State<Calculator> {
-  String _output = "";
-  String _equation = "";
-  bool _isDarkMode = true;
-  String _currentTitle = "";
-  List<CalculationHistory> _history = [];
-  double _fontSize = 60.0;
-  ScrollController _scrollController = ScrollController();
-  String _result = "";
-
-  bool _isRadMode = false;
-  bool _showExtraButtons = false;
-  @override
-  void initState() {
-    super.initState();
-    _loadHistory();
-    _scrollController = ScrollController();
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-  // ... [Previous methods remain unchanged]
-
-  void _updateFontSize() {
-    setState(() {
-      if (_output.length > 8) {
-        _fontSize = 60.0 - (_output.length - 8) * 2.0;
-        _fontSize = _fontSize.clamp(15.0, 60.0); // Changed minimum to 15.0
-      } else {
-        _fontSize = 60.0;
-      }
-    });
-  }
-
-  void _onButtonPressed(String buttonText) {
-    setState(() {
-      if (buttonText == "AC") {
-        _output = "";
-        _equation = "";
-        _result = "";
-        _fontSize = 60.0;
-      } else if (buttonText == "=") {
-        if (_result.isNotEmpty) {
-          _output = _result;
-          _result = "";
-        } else {
-          _equation = _output;
-          try {
-            var result = _evaluateExpression(_output);
-            _result = result.toStringAsFixed(2);
-            // if (_result != "Error") {
-            //   _showSaveSnackBar();
-            // }
-          } catch (e) {
-            _result = "Error";
-          }
-        }
-      } else if (buttonText == "⌫") {
-        if (_output.isNotEmpty) {
-          _output = _output.substring(0, _output.length - 1);
-        }
-      } else if (["sin", "cos", "tan", "log", "ln", "√", "inv"]
-          .contains(buttonText)) {
-        _output += "$buttonText(";
-      } else if (buttonText == "rad" || buttonText == "deg") {
-        _isRadMode = buttonText == "rad";
-      } else {
-        _output += buttonText;
-        _result = "";
-      }
-      _updateFontSize();
-    });
-  }
-
-  double _evaluateExpression(String expression) {
-    expression = expression.replaceAll('x', '*');
-    expression = expression.replaceAll('÷', '/');
-    expression = expression.replaceAll('π', math.pi.toString());
-    expression = expression.replaceAll('e', math.e.toString());
-
-    // Handle trigonometric and logarithmic functions
-    expression = _handleMathFunctions(expression);
-
-    List<String> tokens = expression.split(RegExp(r'(\+|\-|\*|\/)'));
-    List<String> operators = expression
-        .split(RegExp(r'[^+\-*/]+'))
-        .where((s) => s.isNotEmpty)
-        .toList();
-
-    List<double> numbers = tokens.map((t) => double.tryParse(t) ?? 0).toList();
-
-    // Perform multiplication and division first
-    for (int i = 0; i < operators.length; i++) {
-      if (operators[i] == '*' || operators[i] == '/') {
-        double result = operators[i] == '*'
-            ? numbers[i] * numbers[i + 1]
-            : numbers[i] / numbers[i + 1];
-        numbers[i] = result;
-        numbers.removeAt(i + 1);
-        operators.removeAt(i);
-        i--;
-      }
-    }
-
-    // Perform addition and subtraction
-    double result = numbers[0];
-    for (int i = 0; i < operators.length; i++) {
-      if (operators[i] == '+') {
-        result += numbers[i + 1];
-      } else if (operators[i] == '-') {
-        result -= numbers[i + 1];
-      }
-    }
-
-    return result;
-  }
-
-  String _handleMathFunctions(String expression) {
-    expression = expression.replaceAllMapped(RegExp(r'sin\((.*?)\)'),
-        (match) => math.sin(double.parse(match.group(1)!)).toString());
-    expression = expression.replaceAllMapped(RegExp(r'cos\((.*?)\)'),
-        (match) => math.cos(double.parse(match.group(1)!)).toString());
-    expression = expression.replaceAllMapped(RegExp(r'tan\((.*?)\)'),
-        (match) => math.tan(double.parse(match.group(1)!)).toString());
-    expression = expression.replaceAllMapped(RegExp(r'log\((.*?)\)'),
-        (match) => math.log(double.parse(match.group(1)!)).toString());
-    return expression;
-  }
-
-  // void _showSaveSnackBar() {
-  //   final snackBar = SnackBar(
-  //     content: Row(
-  //       children: [
-  //         Expanded(
-  //           child: TextField(
-  //             decoration: InputDecoration(
-  //               hintText: "Enter title",
-  //               border: OutlineInputBorder(),
-  //             ),
-  //             onChanged: (value) => _currentTitle = value,
-  //           ),
-  //         ),
-  //         TextButton(
-  //           child: Text("Save"),
-  //           onPressed: () {
-  //             _addToHistory();
-  //             ScaffoldMessenger.of(context).hideCurrentSnackBar();
-  //           },
-  //         ),
-  //         TextButton(
-  //           child: Text("Cancel"),
-  //           onPressed: () {
-  //             ScaffoldMessenger.of(context).hideCurrentSnackBar();
-  //           },
-  //         ),
-  //       ],
-  //     ),
-  //     duration: Duration(days: 365), // Long duration to keep it open
-  //     behavior: SnackBarBehavior.floating, // Make the SnackBar float
-  //     margin: EdgeInsets.only(
-  //       bottom: MediaQuery.of(context).viewInsets.bottom + 10,
-  //       left: 10,
-  //       right: 10,
-  //     ), // Adjust margin to appear above keyboard
-  //   );
-
-  //   ScaffoldMessenger.of(context).showSnackBar(snackBar);
-  // }
-
-  void _showHistory() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Calculation History"),
-          content: Container(
-            width: double.maxFinite,
-            child: _history.isEmpty
-                ? Center(child: Text("No history available"))
-                : ListView.builder(
-                    itemCount: _history.length,
-                    itemBuilder: (context, index) {
-                      final item = _history[index];
-                      return ListTile(
-                        title: Text(item.title),
-                        subtitle: Text("${item.equation} = ${item.result}"),
-                        onTap: () {
-                          setState(() {
-                            _output = item.equation;
-                            _result = item.result;
-                          });
-                          Navigator.of(context).pop();
-                        },
-                        visualDensity: VisualDensity(
-                            vertical: -4), // Reduce vertical padding
-                      );
-                    },
-                  ),
-          ),
-          actions: [
-            if (_history.isNotEmpty)
-              TextButton(
-                child: Text("Clear History"),
-                onPressed: () {
-                  setState(() {
-                    _history.clear();
-                    _saveHistory();
-                  });
-                  Navigator.of(context).pop();
-                },
-              ),
-            TextButton(
-              child: Text("Close"),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _addToHistory() {
-    if (_currentTitle.isNotEmpty) {
-      setState(() {
-        _history.insert(
-          0,
-          CalculationHistory(
-            title: _currentTitle,
-            equation: _equation,
-            result: _result,
-          ),
-        );
-        _currentTitle = "";
-      });
-      _saveHistory();
-    }
-  }
-
-  void _loadHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    final historyJson = prefs.getStringList('history') ?? [];
-    setState(() {
-      _history = historyJson
-          .map((item) => CalculationHistory.fromJson(jsonDecode(item)))
-          .toList();
-    });
-  }
-
-  void _toggleTheme() {
-    setState(() {
-      _isDarkMode = !_isDarkMode;
-    });
-  }
-
-  void _saveHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    final historyJson =
-        _history.map((item) => jsonEncode(item.toJson())).toList();
-    await prefs.setStringList('history', historyJson);
-  }
-
-  void _toggleExtraButtons() {
-    setState(() {
-      _showExtraButtons = !_showExtraButtons;
-    });
-  }
+class _HomePageState extends State<HomePage> {
+  var userInput = '';
+  var answer = '';
+  List<CalculationHistory> history = [];
+  bool showingResult = false;
+  bool replaceInputWithResult = false;
+  String previousExpression = '';
+  final List<String> buttons = [
+    'C',
+    '-/+',
+    '%',
+    'DEL',
+    '7',
+    '8',
+    '9',
+    '/',
+    '4',
+    '5',
+    '6',
+    'x',
+    '1',
+    '2',
+    '3',
+    '-',
+    '0',
+    '.',
+    '=',
+    '+',
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: Icon(Icons.arrow_back),
-        actions: [
-          IconButton(
-            icon:
-                Icon(_showExtraButtons ? Icons.expand_less : Icons.expand_more),
-            onPressed: _toggleExtraButtons,
-          ),
-          IconButton(
-            icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode),
-            onPressed: () {
-              _toggleTheme();
-            },
-          ),
-          Icon(Icons.grid_4x4),
-          Icon(Icons.more_vert),
-        ],
-        backgroundColor: _isDarkMode ? Colors.white : Colors.black,
-        elevation: 0,
+        backgroundColor: Colors.transparent,
+        leading: IconButton(
+          icon: Icon(Icons.history),
+          onPressed: () {
+            showHistoryDialog(context);
+          },
+        ),
       ),
-      body: _buildCalculatorUI(context),
+      backgroundColor: const Color.fromARGB(255, 201, 189, 193),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: <Widget>[
+          _buildDisplayArea(),
+          _buildButtonGrid(),
+        ],
+      ),
     );
   }
 
-  Widget _buildCalculatorUI(BuildContext context) {
-    Color bgColor = _isDarkMode ? Color(0xFFFAF0E6) : Colors.black;
-    Color textColor = _isDarkMode ? Colors.black : Colors.white;
-    Color buttonColor = _isDarkMode ? Colors.white : Colors.black;
-    Color orangeColor = Color(0xFFFFA000);
-
+  Widget _buildDisplayArea() {
     return Container(
-      color: bgColor,
+      height: 250,
+      padding: EdgeInsets.all(15),
+      alignment: Alignment.centerRight,
       child: Column(
-        children: [
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                CalculatorDisplay(text: _output, textColor: textColor),
-                if (_result.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        "= $_result",
-                        style: TextStyle(fontSize: 24, color: textColor),
-                      ),
-                    ),
-                  ),
-              ],
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: <Widget>[
+          // Show previous expression if available
+          if (previousExpression.isNotEmpty)
+            CalculatorDisplay(
+              text: previousExpression + " =",
+              maxFontSize: 30,
+              textColor: Colors.black,
+              isUserInput: false,
             ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              color: _isDarkMode ? Colors.white : Colors.black,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-            ),
-            child: Column(
-              children: [
-                _buildButtonGrid(buttonColor, textColor, orangeColor),
-              ],
-            ),
+          // Show current input or result
+          CalculatorDisplay(
+            text: showingResult ? answer : userInput,
+            maxFontSize: 60,
+            textColor: Colors.black,
+            isUserInput: true,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildButtonGrid(
-      Color buttonColor, Color textColor, Color orangeColor) {
-    List<List<String>> basicButtons = [
-      ['AC', '%', '⌫', '÷'],
-      ['7', '8', '9', '×'],
-      ['4', '5', '6', '-'],
-      ['1', '2', '3', '+'],
-      ['00', '0', '.', '='],
-    ];
-    List<List<String>> additionalButtons = [
-      [
-        'sin'
-            'cos',
-        'tan',
-        'rad',
-        _isRadMode ? 'deg' : 'rad'
-      ],
-      ['log', 'ln', '(', ')', 'inv'],
-      ['!', 'AC', '%', '⌫', '÷'],
-      ['^', '7', '8', '9', '×'],
-      ['√', '4', '5', '6', '-'],
-      ['π', '1', '2', '3', '+'],
-      ['e', '00', '0', '.', '='],
-    ];
-    List<List<String>> checkIsAdditional =
-        _showExtraButtons ? additionalButtons : basicButtons;
-    return Column(
-      children: checkIsAdditional.map((row) {
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: row.map((button) {
-            Color currentColor = button == 'AC'
-                ? orangeColor
-                : button == '='
-                    ? orangeColor
-                    : buttonColor;
-            Color currentTextColor =
-                (button == 'AC' || button == '=') ? Colors.white : textColor;
-            return _buildButton(button, currentColor, currentTextColor);
-          }).toList(),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildButtonRow(
-      List<String> buttons, Color buttonColor, Color textColor,
-      [Color? specialColor]) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 5),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: buttons.map((button) {
-          Color currentButtonColor = button == 'AC' || button == '='
-              ? specialColor ?? Colors.orange
-              : buttonColor;
-          Color currentTextColor =
-              (button == 'AC' || button == '=') ? Colors.white : textColor;
-          return _buildButton(button, currentButtonColor, currentTextColor);
-        }).toList(),
+  Widget _buildButtonGrid() {
+    return Expanded(
+      flex: 5,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(40),
+            topLeft: Radius.circular(40),
+          ),
+        ),
+        child: GridView.builder(
+          padding: EdgeInsets.symmetric(horizontal: 10),
+          itemCount: buttons.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4,
+            childAspectRatio: 1,
+          ),
+          itemBuilder: (BuildContext context, int index) {
+            return _buildButton(buttons[index], index);
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildButtonColumn(
-      List<String> buttons, Color buttonColor, Color textColor) {
-    return Column(
-      children: buttons.map((button) {
-        return Column(
-          children: [
-            _buildButton(button, buttonColor, textColor),
-            SizedBox(height: 5), // Reduced space between buttons
-          ],
-        );
-      }).toList(),
-    );
-  }
+  Widget _buildButton(String text, int index) {
+    Color? color;
+    Color? textColor;
 
-  Widget _buildButton(String text, Color buttonColor, Color textColor) {
-    return Container(
-      width: 70,
-      height: 70,
-      margin: EdgeInsets.all(2),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: buttonColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(35),
-          ),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: textColor,
-          ),
-        ),
-        onPressed: () => _onButtonPressed(text),
+    if (index == 0) {
+      color = const Color.fromARGB(255, 201, 189, 193);
+      textColor = Colors.black;
+    } else if (index == 1 || index == 2 || index == 3) {
+      color = const Color.fromARGB(248, 238, 234, 231);
+      textColor = Colors.black;
+    } else if (index == 18) {
+      color = const Color.fromARGB(255, 201, 189, 193);
+      textColor = Colors.white;
+    } else {
+      color = isOperator(text)
+          ? const Color.fromARGB(248, 238, 234, 231)
+          : Colors.white;
+      textColor = isOperator(text) ? Colors.white : Colors.black;
+    }
+
+    return MyButton(
+      buttontapped: () => onButtonClick(
+        text,
       ),
+      buttonText: text,
+      color: color,
+      textColor: textColor,
     );
   }
-}
 
-class FadingText extends StatelessWidget {
-  final String text;
-  final TextStyle style;
+  bool isOperator(String x) {
+    return x == '/' || x == 'x' || x == '-' || x == '+' || x == '=';
+  }
 
-  const FadingText({Key? key, required this.text, required this.style})
-      : super(key: key);
+  void onButtonClick(String value) {
+    setState(() {
+      if (value == "C") {
+        // Clear everything
+        userInput = '';
+        answer = '';
+        previousExpression = '';
+        showingResult = false;
+      } else if (value == "=") {
+        if (userInput.isNotEmpty) {
+          // Calculate the result
+          answer = calculateResult(userInput);
+          if (answer == "Error") {
+            // If there's an error, show the error message
+            showingResult = true;
+          }
+          // Set previousExpression to current input
+          previousExpression = userInput;
+          // Display the result and clear user input for new calculations
+          userInput = '';
+          showingResult = true;
+          history.add(CalculationHistory(
+            title: "Calculation",
+            equation: userInput,
+            result: answer,
+          ));
+        }
+      } else if (value == "DEL") {
+        // Delete the last character from user input
+        if (userInput.isNotEmpty) {
+          userInput = userInput.substring(0, userInput.length - 1);
+        }
+      } else {
+        if (showingResult) {
+          // If result is shown and user starts new input, clear result but not the input
+          if (answer == "Error") {
+            // If error was shown, start fresh input
+            userInput = value;
+            answer = ''; // Clear previous error
+            showingResult = false;
+          } else {
+            // If result was shown correctly, use the result as a base
+            userInput =
+                answer + value; // Append new input to the previous result
+            answer = ''; // Clear previous result
+            showingResult = false;
+          }
+        } else {
+          // Append the button value to the input
+          userInput += value;
+        }
+      }
+    });
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return CustomPaint(
-          size: Size(constraints.maxWidth, constraints.maxHeight),
-          painter: _FadingTextPainter(text: text, style: style),
+  String calculateResult(String input) {
+    input = input.replaceAll('x', '*');
+    try {
+      Parser p = Parser();
+      Expression exp = p.parse(input);
+      ContextModel cm = ContextModel();
+      double eval = exp.evaluate(EvaluationType.REAL, cm);
+
+      // Format the result to remove trailing zeros
+      String result = eval.toString();
+      if (result.contains('.')) {
+        result = result.replaceAll(RegExp(r'([.]*?)0+$'), '');
+        if (result.endsWith('.')) {
+          result = result.substring(0, result.length - 1);
+        }
+      }
+
+      return result;
+    } catch (e) {
+      return "Error";
+    }
+  }
+
+  void _evaluateExpression() {
+    String finalUserInput = userInput.replaceAll('x', '*');
+    Parser p = Parser();
+    Expression exp = p.parse(finalUserInput);
+    ContextModel cm = ContextModel();
+    double eval = exp.evaluate(EvaluationType.REAL, cm);
+    setState(() {
+      answer = eval.toString();
+      history.add(CalculationHistory(
+        title: "Calculation",
+        equation: userInput,
+        result: answer,
+      ));
+    });
+  }
+
+  void showHistoryDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("History"),
+          content: _buildHistoryList(),
+          actions: _buildHistoryActions(context),
         );
       },
     );
   }
-}
 
-class _FadingTextPainter extends CustomPainter {
-  final String text;
-  final TextStyle style;
-
-  _FadingTextPainter({required this.text, required this.style});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final textPainter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout(maxWidth: double.infinity);
-
-    final textWidth = textPainter.width;
-    final fadeWidth = size.width * 0.2; // 20% of the width for fading
-
-    if (textWidth <= size.width) {
-      // If text fits, just paint it normally
-      textPainter.paint(canvas, Offset(size.width - textWidth, 0));
-    } else {
-      // If text doesn't fit, we need to fade and clip
-      final shader = ui.Gradient.linear(
-        Offset.zero,
-        Offset(fadeWidth, 0),
-        [style.color!.withOpacity(0), style.color!],
-      );
-
-      final paint = Paint()..shader = shader;
-
-      canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), paint);
-
-      // Calculate the offset to ensure the last word is fully visible
-      final lastWord = text.split(RegExp(r'[,\s]+')).last;
-      final lastWordPainter = TextPainter(
-        text: TextSpan(text: lastWord, style: style),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      final lastWordWidth = lastWordPainter.width;
-
-      final visibleTextWidth = size.width - fadeWidth;
-      final startX = -(textWidth - visibleTextWidth - lastWordWidth);
-
-      textPainter.paint(canvas, Offset(startX, 0));
-
-      canvas.restore();
-    }
+  Widget _buildHistoryList() {
+    return Container(
+      width: double.maxFinite,
+      child: history.isEmpty
+          ? Text(
+              'No History Added Yet',
+              style: TextStyle(color: Colors.grey, fontSize: 15),
+            )
+          : ListView.builder(
+              shrinkWrap: true,
+              itemCount: history.length,
+              itemBuilder: (BuildContext context, int index) {
+                return ListTile(
+                  title: Text(history[index].title),
+                  subtitle: Text(
+                      "${history[index].equation} = ${history[index].result}"),
+                );
+              },
+            ),
+    );
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  List<Widget> _buildHistoryActions(BuildContext context) {
+    return [
+      if (history.isNotEmpty)
+        TextButton(
+          child: Text("Clear All"),
+          onPressed: () {
+            setState(() {
+              history.clear();
+            });
+            Navigator.of(context).pop();
+            showHistoryDialog(context);
+          },
+        ),
+      TextButton(
+        child: Text("Close"),
+        onPressed: () {
+          Navigator.of(context).pop();
+        },
+      ),
+    ];
+  }
 }
 
 class CalculatorDisplay extends StatefulWidget {
   final String text;
   final double maxFontSize;
   final Color textColor;
+  final bool
+      isUserInput; // New parameter to differentiate between user input and answer
 
   const CalculatorDisplay({
     Key? key,
     required this.text,
     this.maxFontSize = 60,
     required this.textColor,
+    this.isUserInput = true, // Default to true, indicating it's user input
   }) : super(key: key);
 
   @override
@@ -576,27 +329,29 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
   @override
   void initState() {
     super.initState();
-    _cursorController = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: 500),
-    )..repeat(reverse: true);
-    _cursorController.addListener(() {
-      setState(() {
-        _cursorVisible = _cursorController.value > 0.5;
+    if (widget.isUserInput) {
+      _cursorController = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: 500),
+      )..repeat(reverse: true);
+      _cursorController.addListener(() {
+        setState(() {
+          _cursorVisible = _cursorController.value > 0.5;
+        });
       });
-    });
+    }
   }
 
   @override
   void dispose() {
-    _cursorController.dispose();
+    if (widget.isUserInput) {
+      _cursorController.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    Color textColor =
-        _CalculatorState()._isDarkMode ? Colors.white : Colors.black;
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth = constraints.maxWidth - 40;
@@ -607,7 +362,7 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
           final textStyle = TextStyle(
             fontSize: currentFontSize,
             fontWeight: FontWeight.bold,
-            color: _CalculatorState()._isDarkMode ? Colors.white : Colors.black,
+            color: widget.textColor,
           );
 
           final textPainter = TextPainter(
@@ -621,8 +376,8 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
             currentFontSize -= 1;
           }
 
-          if (currentFontSize < 15) {
-            currentFontSize = 15;
+          if (currentFontSize < minFontSize) {
+            currentFontSize = minFontSize;
             break;
           }
         } while (textWidth > maxWidth);
@@ -650,23 +405,79 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
                   ),
                 ),
               ),
-              SizedBox(
-                width: currentFontSize * 0.2,
-                child: _cursorVisible
-                    ? Text(
-                        '|',
-                        style: TextStyle(
-                          fontSize: currentFontSize,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange,
-                        ),
-                      )
-                    : Container(),
-              ),
+              if (widget.isUserInput) // Show cursor only if it's user input
+                SizedBox(
+                  width: currentFontSize * 0.2,
+                  child: _cursorVisible
+                      ? Text(
+                          '|',
+                          style: TextStyle(
+                            fontSize: currentFontSize,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                          ),
+                        )
+                      : Container(),
+                ),
             ],
           ),
         );
       },
     );
   }
+}
+
+class MyButton extends StatelessWidget {
+  final Color? color;
+  final Color? textColor;
+  final String buttonText;
+  final Function buttontapped;
+
+  const MyButton({
+    Key? key,
+    this.color,
+    this.textColor,
+    required this.buttonText,
+    required this.buttontapped,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        buttontapped();
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(5.0),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            color: color,
+            child: Center(
+              child: Text(
+                buttonText,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CalculationHistory {
+  final String title;
+  final String equation;
+  final String result;
+
+  CalculationHistory({
+    required this.title,
+    required this.equation,
+    required this.result,
+  });
 }
