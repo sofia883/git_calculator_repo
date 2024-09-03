@@ -53,8 +53,8 @@ class _HomePageState extends State<HomePage> {
         forceMaterialTransparency: true,
         toolbarHeight: 80,
         leading: IconButton(
-          icon: Icon(Icons.history,
-              color: AppColors.getButtonTextColor(isDarkMode)),
+          color: isDarkMode ? Colors.white : Colors.black,
+          icon: Icon(Icons.history),
           onPressed: () {
             showHistoryDialog(context);
           },
@@ -63,20 +63,20 @@ class _HomePageState extends State<HomePage> {
           Padding(
               padding: const EdgeInsets.all(8.0),
               child: Container(
-                width: 80, // Adjust width as needed
+                width: 60, // Adjust width as needed
                 height: 30, // Adjust height as needed
                 decoration: BoxDecoration(
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      spreadRadius: 3,
-                      blurRadius: 3,
-                      offset: Offset(0, 3),
+                      color: Colors.grey.withOpacity(0.2),
+                      spreadRadius: 5,
+                      blurRadius: 7,
+                      offset: Offset(0, 7),
                     ),
                   ],
                   color: isDarkMode ? Colors.black : Colors.white,
                   border: Border.all(
-                    color: Colors.grey,
+                    color: isDarkMode ? Colors.black : Colors.white,
                     width: 2.0,
                   ),
                   borderRadius: BorderRadius.circular(25),
@@ -103,7 +103,7 @@ class _HomePageState extends State<HomePage> {
                         duration: Duration(milliseconds: 200),
                         child: Icon(
                           Icons.dark_mode,
-                          color: Colors.blueGrey,
+                          color: const Color.fromARGB(255, 46, 54, 58),
                           size: 20,
                         ),
                       ),
@@ -117,6 +117,7 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           _buildDisplayArea(),
           _buildButtonGrid(),
@@ -509,9 +510,7 @@ class MyButton extends StatelessWidget {
 
 class AppColors {
   static Color getBackgroundColor(bool isDarkMode) {
-    return isDarkMode
-        ? const Color.fromARGB(201, 28, 28, 28)
-        : const Color.fromARGB(255, 241, 237, 237);
+    return isDarkMode ? const Color.fromARGB(201, 28, 28, 28) : Colors.white;
   }
 
   static Color getButtonColor(bool isDarkMode) {
