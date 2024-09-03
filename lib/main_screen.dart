@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:math_expressions/math_expressions.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class HomePage extends StatefulWidget {
   @override
@@ -13,6 +15,13 @@ class _HomePageState extends State<HomePage> {
   bool showingResult = false;
   bool replaceInputWithResult = false;
   String previousExpression = '';
+  bool isDarkMode = true;
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
   final List<String> buttons = [
     'C',
     '-/+',
@@ -39,16 +48,73 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.getBackgroundColor(isDarkMode),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        forceMaterialTransparency: true,
+        toolbarHeight: 80,
         leading: IconButton(
-          icon: Icon(Icons.history),
+          icon: Icon(Icons.history,
+              color: AppColors.getButtonTextColor(isDarkMode)),
           onPressed: () {
             showHistoryDialog(context);
           },
         ),
+        actions: [
+          Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                width: 80, // Adjust width as needed
+                height: 30, // Adjust height as needed
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      spreadRadius: 3,
+                      blurRadius: 3,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                  color: isDarkMode ? Colors.black : Colors.white,
+                  border: Border.all(
+                    color: Colors.grey,
+                    width: 2.0,
+                  ),
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    GestureDetector(
+                      onTap: isDarkMode ? _toggleTheme : null,
+                      child: AnimatedOpacity(
+                        opacity: isDarkMode ? 1.0 : 0.2,
+                        duration: Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.sunny,
+                          color: Colors.orange,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: isDarkMode ? null : _toggleTheme,
+                      child: AnimatedOpacity(
+                        opacity: isDarkMode ? 0.2 : 1.0,
+                        duration: Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.dark_mode,
+                          color: Colors.blueGrey,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ))
+        ],
+        backgroundColor:
+            Colors.transparent, // Makes the AppBar background transparent
       ),
-      backgroundColor: const Color.fromARGB(255, 201, 189, 193),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
@@ -61,8 +127,8 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildDisplayArea() {
     return Container(
-      height: 250,
-      padding: EdgeInsets.all(15),
+      height: 230.0,
+      padding: EdgeInsets.only(bottom: 30, right: 8, left: 8),
       alignment: Alignment.centerRight,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -70,17 +136,37 @@ class _HomePageState extends State<HomePage> {
         children: <Widget>[
           // Show previous expression if available
           if (previousExpression.isNotEmpty)
-            CalculatorDisplay(
-              text: previousExpression + " =",
-              maxFontSize: 30,
-              textColor: Colors.black,
-              isUserInput: false,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    previousExpression,
+                    style: TextStyle(
+                      fontSize: 30,
+                      color: AppColors.getDisplayTextColor(isDarkMode),
+                    ),
+                  ),
+                  Text(
+                    ' = ',
+                    style: TextStyle(
+                      fontSize: 30,
+                      color:
+                          Colors.orange, // This will make the "=" sign orange
+                    ),
+                  ),
+                ],
+              ),
             ),
+          SizedBox(
+            height: 10,
+          ),
           // Show current input or result
           CalculatorDisplay(
             text: showingResult ? answer : userInput,
             maxFontSize: 60,
-            textColor: Colors.black,
+            textColor: AppColors.getDisplayTextColor(isDarkMode),
             isUserInput: true,
           ),
         ],
@@ -93,7 +179,7 @@ class _HomePageState extends State<HomePage> {
       flex: 5,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.getButtonColor(isDarkMode),
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(40),
             topLeft: Radius.circular(40),
@@ -107,7 +193,10 @@ class _HomePageState extends State<HomePage> {
             childAspectRatio: 1,
           ),
           itemBuilder: (BuildContext context, int index) {
-            return _buildButton(buttons[index], index);
+            return Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: _buildButton(buttons[index], index),
+            );
           },
         ),
       ),
@@ -117,30 +206,38 @@ class _HomePageState extends State<HomePage> {
   Widget _buildButton(String text, int index) {
     Color? color;
     Color? textColor;
+    double borderRadius = index < 4 ? 20.0 : 45.0;
 
     if (index == 0) {
-      color = const Color.fromARGB(255, 201, 189, 193);
-      textColor = Colors.black;
-    } else if (index == 1 || index == 2 || index == 3) {
-      color = const Color.fromARGB(248, 238, 234, 231);
-      textColor = Colors.black;
+      color = AppColors.getButtonColor(isDarkMode);
+      textColor = isDarkMode
+          ? const Color.fromARGB(243, 175, 250, 1)
+          : const Color.fromARGB(255, 18, 200, 24);
+    } else if (index == 1 || index == 2) {
+      color = AppColors.getButtonColor(isDarkMode);
+
+      textColor = AppColors.getButtonTextColor(isDarkMode);
+    } else if (index == 3) {
+      textColor = Colors.red;
     } else if (index == 18) {
-      color = const Color.fromARGB(255, 201, 189, 193);
-      textColor = Colors.white;
+      color = Colors.orange;
+      textColor = AppColors.getButtonTextColor(isDarkMode);
     } else {
       color = isOperator(text)
-          ? const Color.fromARGB(248, 238, 234, 231)
+          ? AppColors.getButtonColor(isDarkMode)
           : Colors.white;
-      textColor = isOperator(text) ? Colors.white : Colors.black;
+      textColor = isDarkMode
+          ? isOperator(text)
+              ? AppColors.getButtonTextColor(isDarkMode)
+              : Colors.white
+          : Colors.black;
     }
-
     return MyButton(
-      buttontapped: () => onButtonClick(
-        text,
-      ),
+      buttontapped: () => onButtonClick(text),
       buttonText: text,
-      color: color,
       textColor: textColor,
+      color: index == 18 ? Colors.orange : AppColors.getButtonColor(isDarkMode),
+      borderRadius: borderRadius,
     );
   }
 
@@ -169,16 +266,31 @@ class _HomePageState extends State<HomePage> {
           // Display the result and clear user input for new calculations
           userInput = '';
           showingResult = true;
-          history.add(CalculationHistory(
-            title: "Calculation",
-            equation: userInput,
-            result: answer,
-          ));
+          if (answer != "Error") {
+            history.add(CalculationHistory(
+              title: "Calculation",
+              equation: previousExpression,
+              result: answer,
+            ));
+            _saveHistory(); // Save history to SharedPreferences
+          }
         }
       } else if (value == "DEL") {
-        // Delete the last character from user input
-        if (userInput.isNotEmpty) {
-          userInput = userInput.substring(0, userInput.length - 1);
+        if (showingResult) {
+          // If result is shown, start a new input from scratch
+          if (userInput.isNotEmpty) {
+            userInput = userInput.substring(0, userInput.length - 1);
+          }
+          if (userInput.isEmpty) {
+            // If input becomes empty after deletion, reset showingResult
+            showingResult = false;
+            answer = '';
+          }
+        } else {
+          // Normal delete behavior
+          if (userInput.isNotEmpty) {
+            userInput = userInput.substring(0, userInput.length - 1);
+          }
         }
       } else {
         if (showingResult) {
@@ -202,6 +314,8 @@ class _HomePageState extends State<HomePage> {
       }
     });
   }
+
+// Dummy calculateResult method
 
   String calculateResult(String input) {
     input = input.replaceAll('x', '*');
@@ -242,6 +356,12 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  void _toggleTheme() {
+    setState(() {
+      isDarkMode = !isDarkMode;
+    });
+  }
+
   void showHistoryDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -271,9 +391,57 @@ class _HomePageState extends State<HomePage> {
                   title: Text(history[index].title),
                   subtitle: Text(
                       "${history[index].equation} = ${history[index].result}"),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _handleHistoryTap(history[index]);
+                  },
                 );
               },
             ),
+    );
+  }
+
+  void _handleHistoryTap(CalculationHistory item) {
+    setState(() {
+      userInput = item.equation;
+      answer = item.result;
+      showingResult = true;
+      previousExpression = item.equation;
+    });
+  }
+
+  void _handleDeleteCharacter() {
+    setState(() {
+      if (userInput.isNotEmpty) {
+        userInput = userInput.substring(0, userInput.length - 1);
+      }
+    });
+  }
+
+  void _saveHistory() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> encodedHistory =
+        history.map((historyItem) => jsonEncode(historyItem.toJson())).toList();
+    prefs.setStringList('calculationHistory', encodedHistory);
+  }
+
+  void _loadHistory() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? encodedHistory = prefs.getStringList('calculationHistory');
+    if (encodedHistory != null) {
+      setState(() {
+        history = encodedHistory
+            .map((historyItem) =>
+                CalculationHistory.fromJson(jsonDecode(historyItem)))
+            .toList();
+      });
+    }
+  }
+
+  Widget _buildDelButton() {
+    return ElevatedButton(
+      onPressed: _handleDeleteCharacter,
+      child: Text("DEL"),
     );
   }
 
@@ -297,6 +465,65 @@ class _HomePageState extends State<HomePage> {
         },
       ),
     ];
+  }
+}
+
+class MyButton extends StatelessWidget {
+  final VoidCallback buttontapped;
+  final String buttonText;
+  final Color color;
+  final Color textColor;
+  final double borderRadius;
+
+  MyButton({
+    required this.buttontapped,
+    required this.buttonText,
+    required this.color,
+    required this.textColor,
+    this.borderRadius = 45.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: buttontapped,
+      child: Container(
+        margin: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(borderRadius),
+        ),
+        child: Center(
+          child: Text(
+            buttonText,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 24,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AppColors {
+  static Color getBackgroundColor(bool isDarkMode) {
+    return isDarkMode
+        ? const Color.fromARGB(201, 28, 28, 28)
+        : const Color.fromARGB(255, 241, 237, 237);
+  }
+
+  static Color getButtonColor(bool isDarkMode) {
+    return isDarkMode ? const Color.fromARGB(255, 10, 10, 10)! : Colors.white;
+  }
+
+  static Color getButtonTextColor(bool isDarkMode) {
+    return isDarkMode ? Colors.white : Colors.black;
+  }
+
+  static Color getDisplayTextColor(bool isDarkMode) {
+    return isDarkMode ? Colors.white : Colors.black;
   }
 }
 
@@ -358,6 +585,10 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
         double currentFontSize = widget.maxFontSize;
         double textWidth = double.infinity; // Initialize textWidth
 
+        // Determine text to display
+        final displayText =
+            widget.text.isEmpty && widget.isUserInput ? '0' : widget.text;
+
         do {
           final textStyle = TextStyle(
             fontSize: currentFontSize,
@@ -366,7 +597,7 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
           );
 
           final textPainter = TextPainter(
-            text: TextSpan(text: widget.text, style: textStyle),
+            text: TextSpan(text: displayText, style: textStyle),
             maxLines: 1,
             textDirection: TextDirection.ltr,
           )..layout(minWidth: 0, maxWidth: double.infinity);
@@ -382,8 +613,6 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
           }
         } while (textWidth > maxWidth);
 
-        final displayText = widget.text;
-
         return Container(
           alignment: Alignment.centerRight,
           padding: EdgeInsets.symmetric(horizontal: 20),
@@ -398,14 +627,15 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
                     displayText,
                     style: TextStyle(
                         fontSize: currentFontSize,
-                        fontWeight: FontWeight.bold,
+                        // fontWeight: FontWeight.bold,
                         color: widget.textColor),
                     maxLines: 1,
                     textAlign: TextAlign.right,
                   ),
                 ),
               ),
-              if (widget.isUserInput) // Show cursor only if it's user input
+              if (widget.isUserInput &&
+                  displayText != '0') // Show cursor only if there's user input
                 SizedBox(
                   width: currentFontSize * 0.2,
                   child: _cursorVisible
@@ -427,49 +657,6 @@ class _CalculatorDisplayState extends State<CalculatorDisplay>
   }
 }
 
-class MyButton extends StatelessWidget {
-  final Color? color;
-  final Color? textColor;
-  final String buttonText;
-  final Function buttontapped;
-
-  const MyButton({
-    Key? key,
-    this.color,
-    this.textColor,
-    required this.buttonText,
-    required this.buttontapped,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        buttontapped();
-      },
-      child: Padding(
-        padding: const EdgeInsets.all(5.0),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            color: color,
-            child: Center(
-              child: Text(
-                buttonText,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class CalculationHistory {
   final String title;
   final String equation;
@@ -480,4 +667,22 @@ class CalculationHistory {
     required this.equation,
     required this.result,
   });
+
+  // Convert a CalculationHistory object into a Map object
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'equation': equation,
+      'result': result,
+    };
+  }
+
+  // Convert a Map object into a CalculationHistory object
+  factory CalculationHistory.fromJson(Map<String, dynamic> json) {
+    return CalculationHistory(
+      title: json['title'],
+      equation: json['equation'],
+      result: json['result'],
+    );
+  }
 }
