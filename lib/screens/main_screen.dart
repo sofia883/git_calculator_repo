@@ -1,3 +1,7 @@
+import 'package:calculator_app/themes/colors.dart';
+import 'package:calculator_app/screens/display_screen.dart';
+import 'package:calculator_app/history.dart';
+import 'package:calculator_app/widgets/my_button.dart';
 import 'package:flutter/material.dart';
 import 'package:math_expressions/math_expressions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,9 +26,96 @@ class _HomePageState extends State<HomePage> {
     _loadHistory();
   }
 
+  bool isLastCharOperator() {
+    if (userInput.isEmpty) return false;
+    String lastChar = userInput[userInput.length - 1];
+    return isOperator(lastChar) || lastChar == '%';
+  }
+
+// Replace your onButtonClick method with this updated version
+  void onButtonClick(String value) {
+    setState(() {
+      if (value == "C") {
+        // Clear everything
+        userInput = '';
+        answer = '';
+        previousExpression = '';
+        showingResult = false;
+      } else if (value == "=") {
+        if (userInput.isNotEmpty && !isLastCharOperator()) {
+          // Calculate the result
+          answer = calculateResult(userInput);
+          if (answer == "Error") {
+            showingResult = true;
+          }
+          previousExpression = userInput;
+          userInput = '';
+          showingResult = true;
+          if (answer != "Error") {
+            history.add(CalculationHistory(
+              title: "Calculation",
+              equation: previousExpression,
+              result: answer,
+            ));
+            _saveHistory();
+          }
+        }
+      } else if (value == "DEL") {
+        if (showingResult) {
+          // If showing result, convert answer to userInput for deletion
+          userInput = answer;
+          if (userInput.isNotEmpty) {
+            userInput = userInput.substring(0, userInput.length - 1);
+          }
+          // If all digits are deleted, reset everything
+          if (userInput.isEmpty) {
+            showingResult = false;
+            answer = '';
+            previousExpression = '';
+          } else {
+            // Update answer to show modified number
+            answer = userInput;
+          }
+        } else {
+          // Normal delete behavior
+          if (userInput.isNotEmpty) {
+            userInput = userInput.substring(0, userInput.length - 1);
+          }
+        }
+      } else {
+        // Handle operators and numbers
+        if (isOperator(value) || value == '%') {
+          // If trying to add an operator
+          if (!isLastCharOperator() && userInput.isNotEmpty) {
+            // Only add operator if last character isn't an operator and input isn't empty
+            if (showingResult) {
+              // If there's a result, use it as the starting point
+              userInput = answer + value;
+              answer = '';
+              showingResult = false;
+            } else {
+              userInput += value;
+            }
+          }
+        } else {
+          // For numbers and decimal point
+          if (showingResult) {
+            // Start fresh with new number
+            userInput = value;
+            answer = '';
+            showingResult = false;
+            previousExpression = '';
+          } else {
+            userInput += value;
+          }
+        }
+      }
+    });
+  }
+
   final List<String> buttons = [
     'C',
-    '-/+',
+    '00', // Changed from '-/+'
     '%',
     'DEL',
     '7',
@@ -44,7 +135,6 @@ class _HomePageState extends State<HomePage> {
     '=',
     '+',
   ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -248,75 +338,75 @@ class _HomePageState extends State<HomePage> {
     return x == '/' || x == 'x' || x == '-' || x == '+' || x == '=';
   }
 
-  void onButtonClick(String value) {
-    setState(() {
-      if (value == "C") {
-        // Clear everything
-        userInput = '';
-        answer = '';
-        previousExpression = '';
-        showingResult = false;
-      } else if (value == "=") {
-        if (userInput.isNotEmpty) {
-          // Calculate the result
-          answer = calculateResult(userInput);
-          if (answer == "Error") {
-            // If there's an error, show the error message
-            showingResult = true;
-          }
-          // Set previousExpression to current input
-          previousExpression = userInput;
-          // Display the result and clear user input for new calculations
-          userInput = '';
-          showingResult = true;
-          if (answer != "Error") {
-            history.add(CalculationHistory(
-              title: "Calculation",
-              equation: previousExpression,
-              result: answer,
-            ));
-            _saveHistory(); // Save history to SharedPreferences
-          }
-        }
-      } else if (value == "DEL") {
-        if (showingResult) {
-          // If result is shown, start a new input from scratch
-          if (userInput.isNotEmpty) {
-            userInput = userInput.substring(0, userInput.length - 1);
-          }
-          if (userInput.isEmpty) {
-            // If input becomes empty after deletion, reset showingResult
-            showingResult = false;
-            answer = '';
-          }
-        } else {
-          // Normal delete behavior
-          if (userInput.isNotEmpty) {
-            userInput = userInput.substring(0, userInput.length - 1);
-          }
-        }
-      } else {
-        if (showingResult) {
-          // If result is shown and user starts new input, clear result but not the input
-          if (answer == "Error") {
-            // If error was shown, start fresh input
-            userInput = value;
-            answer = ''; // Clear previous error
-            showingResult = false;
-          } else {
-            // If result was shown correctly, use the result as a base
-            userInput =
-                answer + value; // Append new input to the previous result
-            answer = ''; // Clear previous result
-            showingResult = false;
-          }
-        } else {
-          // Append the button value to the input
-          userInput += value;
-        }
-      }
-    });
-  }
+  // void onButtonClick(String value) {
+  //   setState(() {
+  //     if (value == "C") {
+  //       // Clear everything
+  //       userInput = '';
+  //       answer = '';
+  //       previousExpression = '';
+  //       showingResult = false;
+  //     } else if (value == "=") {
+  //       if (userInput.isNotEmpty) {
+  //         // Calculate the result
+  //         answer = calculateResult(userInput);
+  //         if (answer == "Error") {
+  //           // If there's an error, show the error message
+  //           showingResult = true;
+  //         }
+  //         // Set previousExpression to current input
+  //         previousExpression = userInput;
+  //         // Display the result and clear user input for new calculations
+  //         userInput = '';
+  //         showingResult = true;
+  //         if (answer != "Error") {
+  //           history.add(CalculationHistory(
+  //             title: "Calculation",
+  //             equation: previousExpression,
+  //             result: answer,
+  //           ));
+  //           _saveHistory(); // Save history to SharedPreferences
+  //         }
+  //       }
+  //     } else if (value == "DEL") {
+  //       if (showingResult) {
+  //         // If result is shown, start a new input from scratch
+  //         if (userInput.isNotEmpty) {
+  //           userInput = userInput.substring(0, userInput.length - 1);
+  //         }
+  //         if (userInput.isEmpty) {
+  //           // If input becomes empty after deletion, reset showingResult
+  //           showingResult = false;
+  //           answer = '';
+  //         }
+  //       } else {
+  //         // Normal delete behavior
+  //         if (userInput.isNotEmpty) {
+  //           userInput = userInput.substring(0, userInput.length - 1);
+  //         }
+  //       }
+  //     } else {
+  //       if (showingResult) {
+  //         // If result is shown and user starts new input, clear result but not the input
+  //         if (answer == "Error") {
+  //           // If error was shown, start fresh input
+  //           userInput = value;
+  //           answer = ''; // Clear previous error
+  //           showingResult = false;
+  //         } else {
+  //           // If result was shown correctly, use the result as a base
+  //           userInput =
+  //               answer + value; // Append new input to the previous result
+  //           answer = ''; // Clear previous result
+  //           showingResult = false;
+  //         }
+  //       } else {
+  //         // Append the button value to the input
+  //         userInput += value;
+  //       }
+  //     }
+  //   });
+  // }
 
 // Dummy calculateResult method
 
@@ -468,222 +558,5 @@ class _HomePageState extends State<HomePage> {
         },
       ),
     ];
-  }
-}
-
-class MyButton extends StatelessWidget {
-  final VoidCallback buttontapped;
-  final String buttonText;
-  final Color color;
-  final Color textColor;
-  final double borderRadius;
-
-  MyButton({
-    required this.buttontapped,
-    required this.buttonText,
-    required this.color,
-    required this.textColor,
-    this.borderRadius = 45.0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: buttontapped,
-      child: Container(
-        margin: EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(borderRadius),
-        ),
-        child: Center(
-          child: Text(
-            buttonText,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 24,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class AppColors {
-  static Color getBackgroundColor(bool isDarkMode) {
-    return isDarkMode ? const Color.fromARGB(201, 28, 28, 28) : Colors.white;
-  }
-
-  static Color getButtonColor(bool isDarkMode) {
-    return isDarkMode ? const Color.fromARGB(255, 10, 10, 10)! : Colors.white;
-  }
-
-  static Color getButtonTextColor(bool isDarkMode) {
-    return isDarkMode ? Colors.white : Colors.black;
-  }
-
-  static Color getDisplayTextColor(bool isDarkMode) {
-    return isDarkMode ? Colors.white : Colors.black;
-  }
-}
-
-class CalculatorDisplay extends StatefulWidget {
-  final String text;
-  final double maxFontSize;
-  final Color textColor;
-  final bool
-      isUserInput; // New parameter to differentiate between user input and answer
-
-  const CalculatorDisplay({
-    Key? key,
-    required this.text,
-    this.maxFontSize = 60,
-    required this.textColor,
-    this.isUserInput = true, // Default to true, indicating it's user input
-  }) : super(key: key);
-
-  @override
-  _CalculatorDisplayState createState() => _CalculatorDisplayState();
-}
-
-class _CalculatorDisplayState extends State<CalculatorDisplay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _cursorController;
-  bool _cursorVisible = true;
-  double fontSize = 60;
-  static const double minFontSize = 30;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.isUserInput) {
-      _cursorController = AnimationController(
-        vsync: this,
-        duration: Duration(milliseconds: 500),
-      )..repeat(reverse: true);
-      _cursorController.addListener(() {
-        setState(() {
-          _cursorVisible = _cursorController.value > 0.5;
-        });
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    if (widget.isUserInput) {
-      _cursorController.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth - 40;
-        double currentFontSize = widget.maxFontSize;
-        double textWidth = double.infinity; // Initialize textWidth
-
-        // Determine text to display
-        final displayText =
-            widget.text.isEmpty && widget.isUserInput ? '0' : widget.text;
-
-        do {
-          final textStyle = TextStyle(
-            fontSize: currentFontSize,
-            fontWeight: FontWeight.bold,
-            color: widget.textColor,
-          );
-
-          final textPainter = TextPainter(
-            text: TextSpan(text: displayText, style: textStyle),
-            maxLines: 1,
-            textDirection: TextDirection.ltr,
-          )..layout(minWidth: 0, maxWidth: double.infinity);
-
-          textWidth = textPainter.width;
-          if (textWidth > maxWidth) {
-            currentFontSize -= 1;
-          }
-
-          if (currentFontSize < minFontSize) {
-            currentFontSize = minFontSize;
-            break;
-          }
-        } while (textWidth > maxWidth);
-
-        return Container(
-          alignment: Alignment.centerRight,
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  reverse: true,
-                  child: Text(
-                    displayText,
-                    style: TextStyle(
-                        fontSize: currentFontSize,
-                        // fontWeight: FontWeight.bold,
-                        color: widget.textColor),
-                    maxLines: 1,
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-              ),
-              if (widget.isUserInput &&
-                  displayText != '0') // Show cursor only if there's user input
-                SizedBox(
-                  width: currentFontSize * 0.2,
-                  child: _cursorVisible
-                      ? Text(
-                          '|',
-                          style: TextStyle(
-                            fontSize: currentFontSize,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange,
-                          ),
-                        )
-                      : Container(),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class CalculationHistory {
-  final String title;
-  final String equation;
-  final String result;
-
-  CalculationHistory({
-    required this.title,
-    required this.equation,
-    required this.result,
-  });
-
-  // Convert a CalculationHistory object into a Map object
-  Map<String, dynamic> toJson() {
-    return {
-      'title': title,
-      'equation': equation,
-      'result': result,
-    };
-  }
-
-  // Convert a Map object into a CalculationHistory object
-  factory CalculationHistory.fromJson(Map<String, dynamic> json) {
-    return CalculationHistory(
-      title: json['title'],
-      equation: json['equation'],
-      result: json['result'],
-    );
   }
 }
