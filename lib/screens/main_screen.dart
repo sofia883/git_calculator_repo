@@ -314,7 +314,7 @@ class _HomePageState extends State<HomePage> {
                     bottom: 10,
                     left: 0,
                     right: 0,
-                    height: 80, // Increased height for more blur
+                    height: 80,
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -326,12 +326,7 @@ class _HomePageState extends State<HomePage> {
                             Color.fromARGB(255, 28, 27, 27).withOpacity(0.7),
                             Color.fromARGB(255, 28, 27, 27),
                           ],
-                          stops: [
-                            0.0,
-                            0.3,
-                            0.6,
-                            1.0
-                          ], // Added more gradient stops for smoother transition
+                          stops: [0.0, 0.3, 0.6, 1.0],
                         ),
                       ),
                     ),
@@ -346,7 +341,48 @@ class _HomePageState extends State<HomePage> {
                 padding: EdgeInsets.only(right: 20, bottom: 20),
                 child: GestureDetector(
                   onTap: () {
-                    _showDeleteConfirmation(context);
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          backgroundColor:
+                              const Color.fromARGB(255, 28, 27, 27),
+                          title: Text(
+                            'Delete All History?',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          content: Text(
+                            'This action cannot be undone.',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                          actions: <Widget>[
+                            TextButton(
+                              child: Text('Cancel'),
+                              onPressed: () => Navigator.of(context).pop(),
+                            ),
+                            TextButton(
+                              child: Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  history.clear();
+                                });
+                                Navigator.pop(context); // Close dialog
+                                Navigator.pop(context); // Close drawer
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                        'All history deleted successfully'),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    );
                   },
                   child: Icon(
                     Icons.delete,
@@ -358,6 +394,154 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildHistoryList() {
+    return Container(
+      width: double.maxFinite,
+      child: history.isEmpty
+          ? Center(
+              child: Text(
+                'No History Added Yet',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            )
+          : ListView.builder(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: history.length,
+              itemBuilder: (BuildContext context, int index) {
+                final historyItem = history[index];
+                final date = DateTime.parse(historyItem.datetime);
+
+                final months = [
+                  'Jan',
+                  'Feb',
+                  'Mar',
+                  'Apr',
+                  'May',
+                  'Jun',
+                  'Jul',
+                  'Aug',
+                  'Sep',
+                  'Oct',
+                  'Nov',
+                  'Dec'
+                ];
+                final day = date.day;
+                final month = months[date.month - 1];
+                final hour = date.hour > 12 ? date.hour - 12 : date.hour;
+                final period = date.hour >= 12 ? 'pm' : 'am';
+                final formattedDateTime =
+                    '${day}th $month, ${hour}:${date.minute.toString().padLeft(2, '0')} $period';
+
+                return Card(
+                  elevation: 0,
+                  color: const Color.fromARGB(255, 28, 27, 27),
+                  margin: EdgeInsets.only(bottom: 8),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      _handleHistoryTap(historyItem);
+                    },
+                    onLongPress: () {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            backgroundColor:
+                                const Color.fromARGB(255, 28, 27, 27),
+                            title: Text(
+                              'Delete History Item?',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            content: Text(
+                              'This action cannot be undone.',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                            actions: <Widget>[
+                              TextButton(
+                                child: Text('Cancel'),
+                                onPressed: () => Navigator.of(context).pop(),
+                              ),
+                              TextButton(
+                                child: Text(
+                                  'Delete',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  setState(() {
+                                    history.removeAt(index);
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('History item deleted'),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                    child: ListTile(
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 4),
+                          RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: historyItem.equation,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: ' = ',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: historyItem.result,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.orange.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            formattedDateTime,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Divider(
+                            thickness: 0.5,
+                          )
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 
@@ -438,127 +622,6 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
-  }
-
-  Widget _buildHistoryList() {
-    return Container(
-      width: double.maxFinite,
-      child: history.isEmpty
-          ? Center(
-              child: Text(
-                'No History Added Yet',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            )
-          : ListView.builder(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemCount: history.length,
-              itemBuilder: (BuildContext context, int index) {
-                final historyItem = history[index];
-                final date = DateTime.parse(historyItem.datetime);
-
-                // Format date and time in the requested format
-                final months = [
-                  'Jan',
-                  'Feb',
-                  'Mar',
-                  'Apr',
-                  'May',
-                  'Jun',
-                  'Jul',
-                  'Aug',
-                  'Sep',
-                  'Oct',
-                  'Nov',
-                  'Dec'
-                ];
-                final day = date.day;
-                final month = months[date.month - 1];
-                final hour = date.hour > 12 ? date.hour - 12 : date.hour;
-                final period = date.hour >= 12 ? 'pm' : 'am';
-                final formattedDateTime =
-                    '${day}th $month, ${hour}:${date.minute.toString().padLeft(2, '0')} $period';
-
-                return Card(
-                  elevation: 0,
-                  color: const Color.fromARGB(255, 28, 27, 27),
-                  margin: EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(height: 4),
-                        RichText(
-                          text: TextSpan(
-                            children: [
-                              TextSpan(
-                                text: historyItem.equation,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              TextSpan(
-                                text: ' = ',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                              TextSpan(
-                                text: historyItem.result,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.orange.shade700,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          formattedDateTime,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Divider(
-                          thickness: 0.5,
-                        )
-                      ],
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _handleHistoryTap(historyItem);
-                    },
-                  ),
-                );
-              },
-            ),
-    );
-  }
-
-  String _getDaySuffix(int day) {
-    if (day >= 11 && day <= 13) {
-      return 'th';
-    }
-    switch (day % 10) {
-      case 1:
-        return 'st';
-      case 2:
-        return 'nd';
-      case 3:
-        return 'rd';
-      default:
-        return 'th';
-    }
   }
 
   Widget _buildDisplayArea() {
