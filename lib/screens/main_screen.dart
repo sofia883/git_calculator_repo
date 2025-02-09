@@ -279,41 +279,79 @@ class _HomePageState extends State<HomePage> {
   Drawer showHistoryDrawer(BuildContext context) {
     return Drawer(
       child: Container(
-        color: Colors.white,
+        color: const Color.fromARGB(255, 28, 27, 27),
         child: Column(
           children: [
+            // Drawer Header
             Container(
-              height: 100, // Reduced drawer header height
+              height: 100,
               decoration: BoxDecoration(
-                color: Colors.orange.shade50,
+                color: const Color.fromARGB(255, 28, 27, 27),
               ),
-              child: Center(
-                child: Text(
-                  'History',
-                  style: TextStyle(
-                    fontSize: 20, // Reduced font size
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 35.0),
+                child: Center(
+                  child: Text(
+                    'History',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
                   ),
                 ),
               ),
             ),
+            // History List with Enhanced Fade Effect
             Expanded(
-              child: _buildHistoryList(),
+              child: Stack(
+                children: [
+                  Container(
+                    padding: EdgeInsets.only(bottom: 10),
+                    child: _buildHistoryList(),
+                  ),
+                  Positioned(
+                    bottom: 10,
+                    left: 0,
+                    right: 0,
+                    height: 80, // Increased height for more blur
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color.fromARGB(255, 28, 27, 27).withOpacity(0),
+                            Color.fromARGB(255, 28, 27, 27).withOpacity(0.4),
+                            Color.fromARGB(255, 28, 27, 27).withOpacity(0.7),
+                            Color.fromARGB(255, 28, 27, 27),
+                          ],
+                          stops: [
+                            0.0,
+                            0.3,
+                            0.6,
+                            1.0
+                          ], // Added more gradient stops for smoother transition
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            // Delete Icon Container
             if (history.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: ElevatedButton(
-                  onPressed: () {
+              Container(
+                alignment: Alignment.centerRight,
+                padding: EdgeInsets.only(right: 20, bottom: 20),
+                child: GestureDetector(
+                  onTap: () {
                     _showDeleteConfirmation(context);
                   },
-                  child: Text(
-                    'Clear All',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 16,
-                    ),
+                  child: Icon(
+                    Icons.delete,
+                    color: const Color.fromARGB(255, 239, 16, 0),
+                    size: 30,
                   ),
                 ),
               ),
@@ -324,36 +362,79 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showDeleteConfirmation(BuildContext context) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      backgroundColor: Colors.black87, // Dark background
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Clear History"),
-          content: Text("Are you sure you want to clear all history?"),
-          actions: [
-            TextButton(
-              child: Text("Cancel"),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: Text("Clear"),
-              onPressed: () {
-                setState(() {
-                  history.clear();
-                  _saveHistory();
-                });
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('History cleared successfully'),
-                    backgroundColor: Colors.green,
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Delete all history?",
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
+              ),
+              SizedBox(height: 10),
+              Text(
+                "All history will be permanently deleted from this device. This action cannot be undone.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70),
+              ),
+              SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      "Cancel",
+                      style: TextStyle(color: Colors.orange, fontSize: 16),
+                    ),
                   ),
-                );
-              },
-            ),
-          ],
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        history.clear();
+                        _saveHistory();
+                      });
+                      Navigator.of(context).pop();
+
+                      // Show Snackbar
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'History cleared successfully',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
+                          ),
+                          backgroundColor: Colors.black87,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      "Delete all",
+                      style: TextStyle(color: Colors.red, fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         );
       },
     );
@@ -404,20 +485,12 @@ class _HomePageState extends State<HomePage> {
 
                 return Card(
                   elevation: 0,
-                  color: Colors.grey.shade50,
+                  color: const Color.fromARGB(255, 28, 27, 27),
                   margin: EdgeInsets.only(bottom: 8),
                   child: ListTile(
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          formattedDateTime,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
                         SizedBox(height: 4),
                         RichText(
                           text: TextSpan(
@@ -426,7 +499,7 @@ class _HomePageState extends State<HomePage> {
                                 text: historyItem.equation,
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: Colors.orange.shade700,
+                                  color: Colors.white,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -441,13 +514,24 @@ class _HomePageState extends State<HomePage> {
                                 text: historyItem.result,
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: Colors.black,
+                                  color: Colors.orange.shade700,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
                         ),
+                        Text(
+                          formattedDateTime,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Divider(
+                          thickness: 0.5,
+                        )
                       ],
                     ),
                     onTap: () {
@@ -543,9 +627,9 @@ class _HomePageState extends State<HomePage> {
           itemCount: buttons.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
-            childAspectRatio: 1.0,
+            childAspectRatio: 1,
             crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
+            mainAxisSpacing: 3,
           ),
           shrinkWrap: true,
           physics: NeverScrollableScrollPhysics(),
