@@ -13,6 +13,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final GlobalKey<ScaffoldState> _scaffoldKey =
+      GlobalKey<ScaffoldState>(); // Add this line
+
   var userInput = '';
   var answer = '';
   List<CalculationHistory> history = [];
@@ -26,13 +29,6 @@ class _HomePageState extends State<HomePage> {
     _loadHistory();
   }
 
-  bool isLastCharOperator() {
-    if (userInput.isEmpty) return false;
-    String lastChar = userInput[userInput.length - 1];
-    return isOperator(lastChar) || lastChar == '%';
-  }
-
-// Replace your onButtonClick method with this updated version
   void onButtonClick(String value) {
     setState(() {
       if (value == "C") {
@@ -51,9 +47,11 @@ class _HomePageState extends State<HomePage> {
           previousExpression = userInput;
           userInput = '';
           showingResult = true;
+
           if (answer != "Error") {
+            final now = DateTime.now();
             history.add(CalculationHistory(
-              title: "Calculation",
+              datetime: now.toIso8601String(),
               equation: previousExpression,
               result: answer,
             ));
@@ -82,35 +80,88 @@ class _HomePageState extends State<HomePage> {
             userInput = userInput.substring(0, userInput.length - 1);
           }
         }
+      } else if (value == "00") {
+        if (showingResult) {
+          // Append 00 to the current result
+          answer = answer + "00";
+        } else if (userInput.isNotEmpty || value == "0") {
+          userInput += "00";
+        }
       } else {
         // Handle operators and numbers
         if (isOperator(value) || value == '%') {
           // If trying to add an operator
-          if (!isLastCharOperator() && userInput.isNotEmpty) {
-            // Only add operator if last character isn't an operator and input isn't empty
+          if (!isLastCharOperator()) {
             if (showingResult) {
               // If there's a result, use it as the starting point
               userInput = answer + value;
               answer = '';
               showingResult = false;
-            } else {
+            } else if (userInput.isNotEmpty) {
               userInput += value;
             }
           }
-        } else {
-          // For numbers and decimal point
+        } else if (value == ".") {
+          // Special handling for decimal point
           if (showingResult) {
-            // Start fresh with new number
-            userInput = value;
+            // If showing result, start new number with "0."
+            userInput = "0.";
             answer = '';
             showingResult = false;
-            previousExpression = '';
+          } else {
+            // Check if we need to add a leading zero
+            if (userInput.isEmpty) {
+              userInput = "0.";
+            } else {
+              // Find the last operator in the input
+              int lastOperatorIndex = -1;
+              for (int i = userInput.length - 1; i >= 0; i--) {
+                if (isOperator(userInput[i]) || userInput[i] == '%') {
+                  lastOperatorIndex = i;
+                  break;
+                }
+              }
+
+              // If decimal point comes right after operator or at start
+              if (lastOperatorIndex == userInput.length - 1 ||
+                  (lastOperatorIndex == -1 && userInput.isEmpty)) {
+                userInput += "0.";
+              } else {
+                userInput += ".";
+              }
+            }
+          }
+        } else {
+          // For numbers
+          if (showingResult) {
+            // Append the number to the current result
+            answer = answer + value;
           } else {
             userInput += value;
           }
         }
       }
     });
+  }
+
+// Helper method to get the last operator index
+  int getLastOperatorIndex() {
+    for (int i = userInput.length - 1; i >= 0; i--) {
+      if (isOperator(userInput[i]) || userInput[i] == '%') {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  bool isLastCharOperator() {
+    if (userInput.isEmpty) return false;
+    String lastChar = userInput[userInput.length - 1];
+    return isOperator(lastChar) || lastChar == '%';
+  }
+
+  bool isOperator(String x) {
+    return x == '/' || x == 'x' || x == '-' || x == '+' || x == '=';
   }
 
   final List<String> buttons = [
@@ -138,7 +189,13 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: SizedBox(
+        // Add width constraint to drawer
+        width: MediaQuery.of(context).size.width * 0.65, // 75% of screen width
+        child: showHistoryDrawer(context),
+      ),
       backgroundColor: AppColors.getBackgroundColor(isDarkMode),
+      key: _scaffoldKey, // Add this line
       appBar: AppBar(
         forceMaterialTransparency: true,
         toolbarHeight: 80,
@@ -146,7 +203,8 @@ class _HomePageState extends State<HomePage> {
           color: isDarkMode ? Colors.white : Colors.black,
           icon: Icon(Icons.history),
           onPressed: () {
-            showHistoryDialog(context);
+            _scaffoldKey.currentState
+                ?.openDrawer(); // Use this instead of Scaffold.of(context)
           },
         ),
         actions: [
@@ -218,6 +276,207 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Drawer showHistoryDrawer(BuildContext context) {
+    return Drawer(
+      child: Container(
+        color: Colors.white,
+        child: Column(
+          children: [
+            Container(
+              height: 100, // Reduced drawer header height
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+              ),
+              child: Center(
+                child: Text(
+                  'History',
+                  style: TextStyle(
+                    fontSize: 20, // Reduced font size
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: _buildHistoryList(),
+            ),
+            if (history.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: ElevatedButton(
+                  onPressed: () {
+                    _showDeleteConfirmation(context);
+                  },
+                  child: Text(
+                    'Clear All',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Clear History"),
+          content: Text("Are you sure you want to clear all history?"),
+          actions: [
+            TextButton(
+              child: Text("Cancel"),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text("Clear"),
+              onPressed: () {
+                setState(() {
+                  history.clear();
+                  _saveHistory();
+                });
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('History cleared successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHistoryList() {
+    return Container(
+      width: double.maxFinite,
+      child: history.isEmpty
+          ? Center(
+              child: Text(
+                'No History Added Yet',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            )
+          : ListView.builder(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: history.length,
+              itemBuilder: (BuildContext context, int index) {
+                final historyItem = history[index];
+                final date = DateTime.parse(historyItem.datetime);
+
+                // Format date and time in the requested format
+                final months = [
+                  'Jan',
+                  'Feb',
+                  'Mar',
+                  'Apr',
+                  'May',
+                  'Jun',
+                  'Jul',
+                  'Aug',
+                  'Sep',
+                  'Oct',
+                  'Nov',
+                  'Dec'
+                ];
+                final day = date.day;
+                final month = months[date.month - 1];
+                final hour = date.hour > 12 ? date.hour - 12 : date.hour;
+                final period = date.hour >= 12 ? 'pm' : 'am';
+                final formattedDateTime =
+                    '${day}th $month, ${hour}:${date.minute.toString().padLeft(2, '0')} $period';
+
+                return Card(
+                  elevation: 0,
+                  color: Colors.grey.shade50,
+                  margin: EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          formattedDateTime,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: historyItem.equation,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.orange.shade700,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              TextSpan(
+                                text: ' = ',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              TextSpan(
+                                text: historyItem.result,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _handleHistoryTap(historyItem);
+                    },
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
+  String _getDaySuffix(int day) {
+    if (day >= 11 && day <= 13) {
+      return 'th';
+    }
+    switch (day % 10) {
+      case 1:
+        return 'st';
+      case 2:
+        return 'nd';
+      case 3:
+        return 'rd';
+      default:
+        return 'th';
+    }
+  }
+
   Widget _buildDisplayArea() {
     return Container(
       height: 230.0,
@@ -271,6 +530,7 @@ class _HomePageState extends State<HomePage> {
     return Expanded(
       flex: 5,
       child: Container(
+        padding: EdgeInsets.only(bottom: 0),
         decoration: BoxDecoration(
           color: AppColors.getButtonColor(isDarkMode),
           borderRadius: BorderRadius.only(
@@ -279,17 +539,18 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         child: GridView.builder(
-          padding: EdgeInsets.symmetric(horizontal: 10),
+          padding: EdgeInsets.all(15),
           itemCount: buttons.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
-            childAspectRatio: 1,
+            childAspectRatio: 1.0,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
           ),
+          shrinkWrap: true,
+          physics: NeverScrollableScrollPhysics(),
           itemBuilder: (BuildContext context, int index) {
-            return Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: _buildButton(buttons[index], index),
-            );
+            return _buildButton(buttons[index], index);
           },
         ),
       ),
@@ -332,10 +593,6 @@ class _HomePageState extends State<HomePage> {
       color: index == 18 ? Colors.orange : AppColors.getButtonColor(isDarkMode),
       borderRadius: borderRadius,
     );
-  }
-
-  bool isOperator(String x) {
-    return x == '/' || x == 'x' || x == '-' || x == '+' || x == '=';
   }
 
   // void onButtonClick(String value) {
@@ -433,22 +690,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _evaluateExpression() {
-    String finalUserInput = userInput.replaceAll('x', '*');
-    Parser p = Parser();
-    Expression exp = p.parse(finalUserInput);
-    ContextModel cm = ContextModel();
-    double eval = exp.evaluate(EvaluationType.REAL, cm);
-    setState(() {
-      answer = eval.toString();
-      history.add(CalculationHistory(
-        title: "Calculation",
-        equation: userInput,
-        result: answer,
-      ));
-    });
-  }
-
   void _toggleTheme() {
     setState(() {
       isDarkMode = !isDarkMode;
@@ -468,46 +709,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildHistoryList() {
-    return Container(
-      width: double.maxFinite,
-      child: history.isEmpty
-          ? Text(
-              'No History Added Yet',
-              style: TextStyle(color: Colors.grey, fontSize: 15),
-            )
-          : ListView.builder(
-              shrinkWrap: true,
-              itemCount: history.length,
-              itemBuilder: (BuildContext context, int index) {
-                return ListTile(
-                  title: Text(history[index].title),
-                  subtitle: Text(
-                      "${history[index].equation} = ${history[index].result}"),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _handleHistoryTap(history[index]);
-                  },
-                );
-              },
-            ),
-    );
-  }
-
   void _handleHistoryTap(CalculationHistory item) {
     setState(() {
       userInput = item.equation;
       answer = item.result;
       showingResult = true;
       previousExpression = item.equation;
-    });
-  }
-
-  void _handleDeleteCharacter() {
-    setState(() {
-      if (userInput.isNotEmpty) {
-        userInput = userInput.substring(0, userInput.length - 1);
-      }
     });
   }
 
@@ -529,13 +736,6 @@ class _HomePageState extends State<HomePage> {
             .toList();
       });
     }
-  }
-
-  Widget _buildDelButton() {
-    return ElevatedButton(
-      onPressed: _handleDeleteCharacter,
-      child: Text("DEL"),
-    );
   }
 
   List<Widget> _buildHistoryActions(BuildContext context) {
