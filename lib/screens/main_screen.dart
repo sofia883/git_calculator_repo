@@ -190,80 +190,54 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: SizedBox(
-        // Add width constraint to drawer
-        width: MediaQuery.of(context).size.width * 0.65, // 75% of screen width
+        width: MediaQuery.of(context).size.width * 0.65, // 65% of screen width
         child: showHistoryDrawer(context),
       ),
       backgroundColor: AppColors.getBackgroundColor(isDarkMode),
-      key: _scaffoldKey, // Add this line
+      key: _scaffoldKey,
       appBar: AppBar(
+        automaticallyImplyLeading: false, // Remove default drawer icon
         forceMaterialTransparency: true,
         toolbarHeight: 80,
-        leading: IconButton(
-          color: isDarkMode ? Colors.white : Colors.black,
-          icon: Icon(Icons.history),
-          onPressed: () {
-            _scaffoldKey.currentState
-                ?.openDrawer(); // Use this instead of Scaffold.of(context)
-          },
-        ),
         actions: [
-          Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Container(
-                width: 60, // Adjust width as needed
-                height: 30, // Adjust height as needed
-                decoration: BoxDecoration(
-                  boxShadow: [
-                    BoxShadow(
-                      color: isDarkMode
-                          ? Colors.grey.withOpacity(0.2)
-                          : Colors.black.withOpacity(0.2),
-                      spreadRadius: 5,
-                      blurRadius: 7,
-                      offset: Offset(0, 7),
-                    ),
-                  ],
-                  color: isDarkMode ? Colors.black : Colors.white,
-                  border: Border.all(
-                    color: isDarkMode ? Colors.black : Colors.white,
-                    width: 2.0,
-                  ),
-                  borderRadius: BorderRadius.circular(25),
-                ),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.list,
+                color: isDarkMode ? Colors.white : Colors.black), // File icon
+            onSelected: (String value) {
+              if (value == 'theme') {
+                _toggleTheme();
+              } else if (value == 'history') {
+                _scaffoldKey.currentState?.openDrawer(); // Open history drawer
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              PopupMenuItem<String>(
+                value: 'theme',
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    GestureDetector(
-                      onTap: isDarkMode ? _toggleTheme : null,
-                      child: AnimatedOpacity(
-                        opacity: isDarkMode ? 1.0 : 0.2,
-                        duration: Duration(milliseconds: 200),
-                        child: Icon(
-                          Icons.sunny,
-                          color: Colors.orange,
-                          size: 20,
-                        ),
-                      ),
+                    Icon(
+                      isDarkMode ? Icons.sunny : Icons.dark_mode,
+                      color: isDarkMode ? Colors.orange : Colors.black,
                     ),
-                    GestureDetector(
-                      onTap: isDarkMode ? null : _toggleTheme,
-                      child: AnimatedOpacity(
-                        opacity: isDarkMode ? 0.2 : 1.0,
-                        duration: Duration(milliseconds: 200),
-                        child: Icon(
-                          Icons.dark_mode,
-                          color: const Color.fromARGB(255, 46, 54, 58),
-                          size: 20,
-                        ),
-                      ),
-                    ),
+                    SizedBox(width: 10),
+                    Text(isDarkMode ? 'Light Mode' : 'Dark Mode'),
                   ],
                 ),
-              ))
+              ),
+              PopupMenuItem<String>(
+                value: 'history',
+                child: Row(
+                  children: [
+                    Icon(Icons.history, color: Colors.blue),
+                    SizedBox(width: 10),
+                    Text('History'),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
-        backgroundColor:
-            Colors.transparent, // Makes the AppBar background transparent
+        backgroundColor: Colors.transparent, // Transparent AppBar
       ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -279,15 +253,14 @@ class _HomePageState extends State<HomePage> {
   Drawer showHistoryDrawer(BuildContext context) {
     return Drawer(
       child: Container(
-        color: const Color.fromARGB(255, 28, 27, 27),
+        color: AppColors.getDrawerBackgroundColor(),
         child: Column(
           children: [
             // Drawer Header
             Container(
               height: 100,
-              decoration: BoxDecoration(
-                color: const Color.fromARGB(255, 28, 27, 27),
-              ),
+              decoration:
+                  BoxDecoration(color: AppColors.getDrawerBackgroundColor()),
               child: Padding(
                 padding: const EdgeInsets.only(top: 35.0),
                 child: Center(
@@ -321,10 +294,10 @@ class _HomePageState extends State<HomePage> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Color.fromARGB(255, 28, 27, 27).withOpacity(0),
-                            Color.fromARGB(255, 28, 27, 27).withOpacity(0.4),
-                            Color.fromARGB(255, 28, 27, 27).withOpacity(0.7),
-                            Color.fromARGB(255, 28, 27, 27),
+                            AppColors.getDrawerBackgroundColor(),
+                            AppColors.getDrawerBackgroundColor(),
+                            AppColors.getDrawerBackgroundColor(),
+                            AppColors.getDrawerBackgroundColor()
                           ],
                           stops: [0.0, 0.3, 0.6, 1.0],
                         ),
@@ -363,7 +336,9 @@ class _HomePageState extends State<HomePage> {
                             TextButton(
                               child: Text(
                                 'Delete',
-                                style: TextStyle(color: Colors.red),
+                                style: TextStyle(
+                                    color:
+                                        AppColors.getDrawerDeleteIconColor()),
                               ),
                               onPressed: () {
                                 setState(() {
@@ -386,7 +361,7 @@ class _HomePageState extends State<HomePage> {
                   },
                   child: Icon(
                     Icons.delete,
-                    color: const Color.fromARGB(255, 239, 16, 0),
+                    color: AppColors.getDrawerDeleteIconColor(),
                     size: 30,
                   ),
                 ),
@@ -398,7 +373,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHistoryList() {
-    return Container(
+    return SizedBox(
       width: double.maxFinite,
       child: history.isEmpty
           ? Center(
@@ -542,85 +517,6 @@ class _HomePageState extends State<HomePage> {
                 );
               },
             ),
-    );
-  }
-
-  void _showDeleteConfirmation(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      backgroundColor: Colors.black87, // Dark background
-      builder: (BuildContext context) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                "Delete all history?",
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
-              ),
-              SizedBox(height: 10),
-              Text(
-                "All history will be permanently deleted from this device. This action cannot be undone.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70),
-              ),
-              SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: Text(
-                      "Cancel",
-                      style: TextStyle(color: Colors.orange, fontSize: 16),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        history.clear();
-                        _saveHistory();
-                      });
-                      Navigator.of(context).pop();
-
-                      // Show Snackbar
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'History cleared successfully',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
-                          ),
-                          backgroundColor: Colors.black87,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          duration: Duration(seconds: 3),
-                        ),
-                      );
-                    },
-                    child: Text(
-                      "Delete all",
-                      style: TextStyle(color: Colors.red, fontSize: 16),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 

@@ -18,4 +18,14 @@ class AppColors {
   static Color getDisplayTextColor(bool isDarkMode) {
     return isDarkMode ? Colors.white : Colors.black;
   }
+
+ static Color getDrawerBackgroundColor() {
+    return const Color.fromARGB(255, 28, 27, 27);
+  }
+
+
+
+  static Color getDrawerDeleteIconColor() {
+    return const Color.fromARGB(255, 239, 16, 0);
+  }
 }
