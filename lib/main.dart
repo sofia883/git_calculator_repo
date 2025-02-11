@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
-import 'screens/main_screen.dart';
+import 'common_imports.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(MyApp());
 }
 
@@ -14,6 +15,3 @@ class MyApp extends StatelessWidget {
     ); // MaterialApp
   }
 }
-
-// creating Stateless Widget for buttons
-

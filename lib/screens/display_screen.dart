@@ -1,8 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:math_expressions/math_expressions.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
-
+import 'package:calculator_app/common_imports.dart';
 class CalculatorDisplay extends StatefulWidget {
   final String text;
   final double maxFontSize;

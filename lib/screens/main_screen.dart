@@ -1,11 +1,4 @@
-import 'package:calculator_app/themes/colors.dart';
-import 'package:calculator_app/screens/display_screen.dart';
-import 'package:calculator_app/history.dart';
-import 'package:calculator_app/widgets/my_button.dart';
-import 'package:flutter/material.dart';
-import 'package:math_expressions/math_expressions.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import 'package:calculator_app/common_imports.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -31,7 +24,7 @@ class _HomePageState extends State<HomePage> {
 
   void onButtonClick(String value) {
     setState(() {
-      if (value == "C") {
+      if (value == "AC") {
         // Clear everything
         userInput = '';
         answer = '';
@@ -165,7 +158,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   final List<String> buttons = [
-    'C',
+    'AC',
     '00', // Changed from '-/+'
     '%',
     'DEL',
@@ -186,6 +179,7 @@ class _HomePageState extends State<HomePage> {
     '=',
     '+',
   ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -259,8 +253,9 @@ class _HomePageState extends State<HomePage> {
             // Drawer Header
             Container(
               height: 100,
-              decoration:
-                  BoxDecoration(color: AppColors.getDrawerBackgroundColor()),
+              decoration: BoxDecoration(
+                color: AppColors.getDrawerBackgroundColor(),
+              ),
               child: Padding(
                 padding: const EdgeInsets.only(top: 35.0),
                 child: Center(
@@ -294,10 +289,12 @@ class _HomePageState extends State<HomePage> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            AppColors.getDrawerBackgroundColor(),
-                            AppColors.getDrawerBackgroundColor(),
-                            AppColors.getDrawerBackgroundColor(),
+                            AppColors.getDrawerBackgroundColor().withOpacity(0),
                             AppColors.getDrawerBackgroundColor()
+                                .withOpacity(0.4),
+                            AppColors.getDrawerBackgroundColor()
+                                .withOpacity(0.7),
+                            AppColors.getDrawerBackgroundColor(),
                           ],
                           stops: [0.0, 0.3, 0.6, 1.0],
                         ),
@@ -336,9 +333,7 @@ class _HomePageState extends State<HomePage> {
                             TextButton(
                               child: Text(
                                 'Delete',
-                                style: TextStyle(
-                                    color:
-                                        AppColors.getDrawerDeleteIconColor()),
+                                style: TextStyle(color: Colors.red),
                               ),
                               onPressed: () {
                                 setState(() {
@@ -373,7 +368,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHistoryList() {
-    return SizedBox(
+    return Container(
       width: double.maxFinite,
       child: history.isEmpty
           ? Center(
@@ -637,79 +632,6 @@ class _HomePageState extends State<HomePage> {
       borderRadius: borderRadius,
     );
   }
-
-  // void onButtonClick(String value) {
-  //   setState(() {
-  //     if (value == "C") {
-  //       // Clear everything
-  //       userInput = '';
-  //       answer = '';
-  //       previousExpression = '';
-  //       showingResult = false;
-  //     } else if (value == "=") {
-  //       if (userInput.isNotEmpty) {
-  //         // Calculate the result
-  //         answer = calculateResult(userInput);
-  //         if (answer == "Error") {
-  //           // If there's an error, show the error message
-  //           showingResult = true;
-  //         }
-  //         // Set previousExpression to current input
-  //         previousExpression = userInput;
-  //         // Display the result and clear user input for new calculations
-  //         userInput = '';
-  //         showingResult = true;
-  //         if (answer != "Error") {
-  //           history.add(CalculationHistory(
-  //             title: "Calculation",
-  //             equation: previousExpression,
-  //             result: answer,
-  //           ));
-  //           _saveHistory(); // Save history to SharedPreferences
-  //         }
-  //       }
-  //     } else if (value == "DEL") {
-  //       if (showingResult) {
-  //         // If result is shown, start a new input from scratch
-  //         if (userInput.isNotEmpty) {
-  //           userInput = userInput.substring(0, userInput.length - 1);
-  //         }
-  //         if (userInput.isEmpty) {
-  //           // If input becomes empty after deletion, reset showingResult
-  //           showingResult = false;
-  //           answer = '';
-  //         }
-  //       } else {
-  //         // Normal delete behavior
-  //         if (userInput.isNotEmpty) {
-  //           userInput = userInput.substring(0, userInput.length - 1);
-  //         }
-  //       }
-  //     } else {
-  //       if (showingResult) {
-  //         // If result is shown and user starts new input, clear result but not the input
-  //         if (answer == "Error") {
-  //           // If error was shown, start fresh input
-  //           userInput = value;
-  //           answer = ''; // Clear previous error
-  //           showingResult = false;
-  //         } else {
-  //           // If result was shown correctly, use the result as a base
-  //           userInput =
-  //               answer + value; // Append new input to the previous result
-  //           answer = ''; // Clear previous result
-  //           showingResult = false;
-  //         }
-  //       } else {
-  //         // Append the button value to the input
-  //         userInput += value;
-  //       }
-  //     }
-  //   });
-  // }
-
-// Dummy calculateResult method
-
   String calculateResult(String input) {
     input = input.replaceAll('x', '*');
     try {

@@ -1,6 +1,4 @@
-import 'dart:ui';
-
-import 'package:flutter/material.dart';
+import 'package:calculator_app/common_imports.dart';
 
 class AppColors {
   static Color getBackgroundColor(bool isDarkMode) {
