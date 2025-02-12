@@ -8,7 +8,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey =
       GlobalKey<ScaffoldState>(); // Add this line
-
+  String liveResult = ''; // Add this variable for live calculation
   var userInput = '';
   var answer = '';
   List<CalculationHistory> history = [];
@@ -21,117 +21,156 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _loadHistory();
   }
+  String formatNumber(String number) {
+    if (number.isEmpty || number == "Error") return number;
+
+    try {
+      // Split number into integer and decimal parts
+      List<String> parts = number.split('.');
+      String integerPart = parts[0];
+
+      // Only format if number has 4 or more digits
+      if (integerPart.replaceAll('-', '').length >= 4) {
+        // Add commas to integer part
+        String formattedInteger = '';
+        int count = 0;
+        for (int i = integerPart.length - 1; i >= 0; i--) {
+          if (count == 3 && i != 0 && integerPart[i - 1] != '-') {
+            formattedInteger = ',' + formattedInteger;
+            count = 0;
+          }
+          formattedInteger = integerPart[i] + formattedInteger;
+          count++;
+        }
+
+        // Combine with decimal part if exists
+        if (parts.length > 1) {
+          return formattedInteger + '.' + parts[1];
+        }
+        return formattedInteger;
+      }
+
+      // Return original number if less than 4 digits
+      return number;
+    } catch (e) {
+      return number;
+    }
+  }
+
+  // Update the calculation result to format numbers in the expression
+  String formatExpression(String input) {
+    if (input.isEmpty) return input;
+
+    // Split by operators while keeping the operators
+    List<String> parts = input.split(RegExp(r'([+\-x/%])'));
+    List<String> operators =
+        input.split(RegExp(r'[0-9.]+')).where((op) => op.isNotEmpty).toList();
+
+    // Format each number in the expression
+    String formatted = '';
+    for (int i = 0; i < parts.length; i++) {
+      if (parts[i].isNotEmpty) {
+        formatted += formatNumber(parts[i]);
+      }
+      if (i < operators.length) {
+        formatted += operators[i];
+      }
+    }
+
+    return formatted;
+  }
 
   void onButtonClick(String value) {
     setState(() {
       if (value == "AC") {
-        // Clear everything
         userInput = '';
         answer = '';
+        liveResult = '';
         previousExpression = '';
         showingResult = false;
       } else if (value == "=") {
         if (userInput.isNotEmpty && !isLastCharOperator()) {
-          // Calculate the result
-          answer = calculateResult(userInput);
-          if (answer == "Error") {
-            showingResult = true;
-          }
-          previousExpression = userInput;
-          userInput = '';
-          showingResult = true;
-
+          String unformattedInput = userInput.replaceAll(',', '');
+          answer = calculateResult(unformattedInput);
           if (answer != "Error") {
+            answer = formatNumber(answer);
             final now = DateTime.now();
             history.add(CalculationHistory(
               datetime: now.toIso8601String(),
-              equation: previousExpression,
+              equation: formatExpression(userInput),
               result: answer,
             ));
             _saveHistory();
           }
+          previousExpression = formatExpression(userInput);
+          userInput = '';
+          showingResult = true;
+          liveResult = '';
         }
       } else if (value == "DEL") {
         if (showingResult) {
-          // If showing result, convert answer to userInput for deletion
-          userInput = answer;
+          userInput = answer.replaceAll(',', '');
           if (userInput.isNotEmpty) {
             userInput = userInput.substring(0, userInput.length - 1);
           }
-          // If all digits are deleted, reset everything
           if (userInput.isEmpty) {
             showingResult = false;
             answer = '';
             previousExpression = '';
           } else {
-            // Update answer to show modified number
-            answer = userInput;
+            answer = formatNumber(userInput);
           }
         } else {
-          // Normal delete behavior
           if (userInput.isNotEmpty) {
-            userInput = userInput.substring(0, userInput.length - 1);
-          }
-        }
-      } else if (value == "00") {
-        if (showingResult) {
-          // Append 00 to the current result
-          answer = answer + "00";
-        } else if (userInput.isNotEmpty || value == "0") {
-          userInput += "00";
-        }
-      } else {
-        // Handle operators and numbers
-        if (isOperator(value) || value == '%') {
-          // If trying to add an operator
-          if (!isLastCharOperator()) {
-            if (showingResult) {
-              // If there's a result, use it as the starting point
-              userInput = answer + value;
-              answer = '';
-              showingResult = false;
-            } else if (userInput.isNotEmpty) {
-              userInput += value;
+            String unformatted = userInput.replaceAll(',', '');
+            userInput = unformatted.substring(0, unformatted.length - 1);
+            if (!isLastCharOperator() && userInput.isNotEmpty) {
+              liveResult =
+                  formatNumber(calculateResult(userInput.replaceAll(',', '')));
+            } else {
+              liveResult = '';
             }
           }
-        } else if (value == ".") {
-          // Special handling for decimal point
-          if (showingResult) {
-            // If showing result, start new number with "0."
-            userInput = "0.";
+        }
+      } else {
+        if (showingResult) {
+          if (isOperator(value)) {
+            userInput = answer.replaceAll(',', '') + value;
             answer = '';
             showingResult = false;
           } else {
-            // Check if we need to add a leading zero
-            if (userInput.isEmpty) {
-              userInput = "0.";
-            } else {
-              // Find the last operator in the input
-              int lastOperatorIndex = -1;
-              for (int i = userInput.length - 1; i >= 0; i--) {
-                if (isOperator(userInput[i]) || userInput[i] == '%') {
-                  lastOperatorIndex = i;
-                  break;
-                }
-              }
-
-              // If decimal point comes right after operator or at start
-              if (lastOperatorIndex == userInput.length - 1 ||
-                  (lastOperatorIndex == -1 && userInput.isEmpty)) {
-                userInput += "0.";
-              } else {
-                userInput += ".";
-              }
-            }
+            userInput = value;
+            answer = '';
+            showingResult = false;
           }
         } else {
-          // For numbers
-          if (showingResult) {
-            // Append the number to the current result
-            answer = answer + value;
+          if (isOperator(value)) {
+            if (!isLastCharOperator() && userInput.isNotEmpty) {
+              userInput += value;
+            }
           } else {
-            userInput += value;
+            String unformatted = userInput.replaceAll(',', '') + value;
+            userInput = unformatted;
           }
+        }
+
+        // Calculate and format live result
+        if (userInput.isNotEmpty && !isLastCharOperator()) {
+          String unformattedInput = userInput.replaceAll(',', '');
+          liveResult = formatNumber(calculateResult(unformattedInput));
+        } else {
+          liveResult = '';
+        }
+      }
+
+      // Format the userInput if it's a number
+      if (!showingResult && userInput.isNotEmpty && !isLastCharOperator()) {
+        String lastNumber = userInput.split(RegExp(r'[+\-x/%]')).last;
+        if (lastNumber.isNotEmpty) {
+          String formatted = formatNumber(lastNumber);
+          userInput =
+              userInput.substring(0, userInput.length - lastNumber.length) +
+                  formatted;
         }
       }
     });
@@ -524,7 +563,6 @@ class _HomePageState extends State<HomePage> {
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: <Widget>[
-          // Show previous expression if available
           if (previousExpression.isNotEmpty)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -542,23 +580,27 @@ class _HomePageState extends State<HomePage> {
                     ' = ',
                     style: TextStyle(
                       fontSize: 30,
-                      color:
-                          Colors.orange, // This will make the "=" sign orange
+                      color: Colors.orange,
                     ),
                   ),
                 ],
               ),
             ),
-          SizedBox(
-            height: 10,
-          ),
-          // Show current input or result
+          SizedBox(height: 10),
           CalculatorDisplay(
             text: showingResult ? answer : userInput,
             maxFontSize: 60,
             textColor: AppColors.getDisplayTextColor(isDarkMode),
             isUserInput: true,
           ),
+          if (!showingResult && liveResult.isNotEmpty)
+            Text(
+              '= ' + liveResult,
+              style: TextStyle(
+                fontSize: 24,
+                color: Colors.grey,
+              ),
+            ),
         ],
       ),
     );
@@ -632,6 +674,7 @@ class _HomePageState extends State<HomePage> {
       borderRadius: borderRadius,
     );
   }
+
   String calculateResult(String input) {
     input = input.replaceAll('x', '*');
     try {
