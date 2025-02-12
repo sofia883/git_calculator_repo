@@ -1,4 +1,5 @@
 import 'package:calculator_app/common_imports.dart';
+import 'package:calculator_app/screens/equation_solver_page.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -306,6 +307,16 @@ class _HomePageState extends State<HomePage> {
         forceMaterialTransparency: true,
         toolbarHeight: 80,
         actions: [
+          IconButton(
+  icon: Icon(Icons.calculate), // Use any icon you prefer
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => EquationSolverPage()),
+    );
+  },
+),
+
           PopupMenuButton<String>(
             icon: Icon(Icons.list,
                 color: isDarkMode ? Colors.white : Colors.black), // File icon
@@ -636,6 +647,7 @@ class _HomePageState extends State<HomePage> {
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: <Widget>[
+          // (Optional) Previous expression or history part
           if (previousExpression.isNotEmpty)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -660,18 +672,54 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           SizedBox(height: 10),
-          CalculatorDisplay(
-            text: showingResult ? answer : userInput,
-            maxFontSize: 60,
-            textColor: AppColors.getDisplayTextColor(isDarkMode),
-            isUserInput: true,
+          // AnimatedSwitcher wraps your CalculatorDisplay.
+          AnimatedSwitcher(
+            duration: Duration(milliseconds: 300),
+            switchInCurve: Curves.easeInOut,
+            switchOutCurve: Curves.easeInOut,
+            // This layoutBuilder ensures only the current widget is shown during transition.
+            layoutBuilder:
+                (Widget? currentChild, List<Widget> previousChildren) {
+              return currentChild ?? Container();
+            },
+            transitionBuilder: (Widget child, Animation<double> animation) {
+              // A subtle slide transition (from below) that gives a smooth feel.
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: Offset(0, 0.5),
+                  end: Offset(0, 0),
+                ).animate(animation),
+                child: child,
+              );
+            },
+            // Change the key whenever the content changes.
+            child: CalculatorDisplay(
+              key: ValueKey(showingResult ? answer : userInput),
+              text: showingResult ? answer : userInput,
+              maxFontSize: 60,
+              textColor: AppColors.getDisplayTextColor(isDarkMode),
+              isUserInput: true,
+            ),
           ),
+          // Optionally, you can also animate the live result display
           if (!showingResult && liveResult.isNotEmpty)
-            Text(
-              '= ' + liveResult,
-              style: TextStyle(
-                fontSize: 24,
-                color: Colors.grey,
+            AnimatedSwitcher(
+              duration: Duration(milliseconds: 300),
+              layoutBuilder:
+                  (Widget? currentChild, List<Widget> previousChildren) {
+                return currentChild ?? Container();
+              },
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+              child: Text(
+                '= ' + liveResult,
+                key: ValueKey(liveResult),
+                style: TextStyle(
+                  fontSize: 24,
+                  color: Colors.grey,
+                ),
               ),
             ),
         ],
