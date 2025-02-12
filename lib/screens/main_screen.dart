@@ -16,61 +16,50 @@ class _HomePageState extends State<HomePage> {
   bool replaceInputWithResult = false;
   String previousExpression = '';
   bool isDarkMode = true;
+  bool continueFromResult =
+      false; // Add this variable to track post-equals state
+
   @override
   void initState() {
     super.initState();
     _loadHistory();
   }
-  String formatNumber(String number) {
-    if (number.isEmpty || number == "Error") return number;
 
-    try {
-      // Split number into integer and decimal parts
-      List<String> parts = number.split('.');
-      String integerPart = parts[0];
-
-      // Only format if number has 4 or more digits
-      if (integerPart.replaceAll('-', '').length >= 4) {
-        // Add commas to integer part
-        String formattedInteger = '';
-        int count = 0;
-        for (int i = integerPart.length - 1; i >= 0; i--) {
-          if (count == 3 && i != 0 && integerPart[i - 1] != '-') {
-            formattedInteger = ',' + formattedInteger;
-            count = 0;
-          }
-          formattedInteger = integerPart[i] + formattedInteger;
-          count++;
+  void updateLiveResult() {
+    if (userInput.isNotEmpty) {
+      String unformattedInput = userInput.replaceAll(',', '');
+      // Always calculate live result, even when last char is operator
+      if (isLastCharOperator()) {
+        // Remove the last operator for calculation
+        String inputForCalc =
+            unformattedInput.substring(0, unformattedInput.length - 1);
+        if (inputForCalc.isNotEmpty) {
+          liveResult = formatNumber(calculateResult(inputForCalc));
         }
-
-        // Combine with decimal part if exists
-        if (parts.length > 1) {
-          return formattedInteger + '.' + parts[1];
-        }
-        return formattedInteger;
+      } else {
+        liveResult = formatNumber(calculateResult(unformattedInput));
       }
-
-      // Return original number if less than 4 digits
-      return number;
-    } catch (e) {
-      return number;
+    } else {
+      liveResult = '';
     }
   }
 
-  // Update the calculation result to format numbers in the expression
+  // Update formatExpression to handle operators better
   String formatExpression(String input) {
     if (input.isEmpty) return input;
 
     // Split by operators while keeping the operators
     List<String> parts = input.split(RegExp(r'([+\-x/%])'));
     List<String> operators =
-        input.split(RegExp(r'[0-9.]+')).where((op) => op.isNotEmpty).toList();
+        input.split(RegExp(r'[0-9.,]+')).where((op) => op.isNotEmpty).toList();
 
     // Format each number in the expression
     String formatted = '';
     for (int i = 0; i < parts.length; i++) {
       if (parts[i].isNotEmpty) {
-        formatted += formatNumber(parts[i]);
+        // Remove existing commas before formatting
+        String unformatted = parts[i].replaceAll(',', '');
+        formatted += formatNumber(unformatted);
       }
       if (i < operators.length) {
         formatted += operators[i];
@@ -78,6 +67,84 @@ class _HomePageState extends State<HomePage> {
     }
 
     return formatted;
+  }
+
+  String calculateResult(String input) {
+    input = input.replaceAll(',', '').replaceAll('x', '*');
+    try {
+      Parser p = Parser();
+      Expression exp = p.parse(input);
+      ContextModel cm = ContextModel();
+      double eval = exp.evaluate(EvaluationType.REAL, cm);
+
+      // Format the result with 1 decimal place
+      String result = eval.toStringAsFixed(1);
+      // Remove trailing zero after decimal point if it exists
+      if (result.endsWith('.0')) {
+        result = result.substring(0, result.length - 2);
+      }
+
+      return result;
+    } catch (e) {
+      return "Error";
+    }
+  }
+
+  // Update formatNumber to handle 4+ digits
+  String formatNumber(String number) {
+    if (number.isEmpty || number == "Error") return number;
+
+    try {
+      // Split into integer and decimal parts.
+      List<String> parts = number.split('.');
+      String integerPart = parts[0];
+      bool isNegative = false;
+
+      // Remove a leading '-' if present.
+      if (integerPart.startsWith('-')) {
+        isNegative = true;
+        integerPart = integerPart.substring(1);
+      }
+
+      // If there are 3 or fewer digits, no formatting is needed.
+      if (integerPart.length <= 3) {
+        String unformatted = (isNegative ? '-' : '') + integerPart;
+        if (parts.length > 1) {
+          unformatted += '.' + parts[1];
+        }
+        return unformatted;
+      }
+
+      // Compute the size of the first group.
+      // For example, for "9345" (length 4) the remainder is 1 so the first group is 1 digit.
+      int remainder = integerPart.length % 3;
+      String formattedInteger = '';
+
+      // If there is a leading group (with remainder > 0), take that first.
+      if (remainder > 0) {
+        formattedInteger = integerPart.substring(0, remainder);
+      }
+
+      // Process the remaining digits in groups of 3.
+      for (int i = remainder; i < integerPart.length; i += 3) {
+        // If we already have some digits, append a comma.
+        if (formattedInteger.isNotEmpty) {
+          formattedInteger += ',';
+        }
+        formattedInteger += integerPart.substring(i, i + 3);
+      }
+
+      // Prepend a negative sign if needed.
+      String result = (isNegative ? '-' : '') + formattedInteger;
+
+      // Add the decimal part back, if it exists.
+      if (parts.length > 1) {
+        result += '.' + parts[1];
+      }
+      return result;
+    } catch (e) {
+      return number;
+    }
   }
 
   void onButtonClick(String value) {
@@ -88,6 +155,7 @@ class _HomePageState extends State<HomePage> {
         liveResult = '';
         previousExpression = '';
         showingResult = false;
+        continueFromResult = false;
       } else if (value == "=") {
         if (userInput.isNotEmpty && !isLastCharOperator()) {
           String unformattedInput = userInput.replaceAll(',', '');
@@ -106,6 +174,7 @@ class _HomePageState extends State<HomePage> {
           userInput = '';
           showingResult = true;
           liveResult = '';
+          continueFromResult = true;
         }
       } else if (value == "DEL") {
         if (showingResult) {
@@ -117,6 +186,7 @@ class _HomePageState extends State<HomePage> {
             showingResult = false;
             answer = '';
             previousExpression = '';
+            continueFromResult = false;
           } else {
             answer = formatNumber(userInput);
           }
@@ -124,29 +194,44 @@ class _HomePageState extends State<HomePage> {
           if (userInput.isNotEmpty) {
             String unformatted = userInput.replaceAll(',', '');
             userInput = unformatted.substring(0, unformatted.length - 1);
-            if (!isLastCharOperator() && userInput.isNotEmpty) {
-              liveResult =
-                  formatNumber(calculateResult(userInput.replaceAll(',', '')));
-            } else {
-              liveResult = '';
-            }
+            updateLiveResult();
           }
         }
       } else {
+        // Handle regular input
         if (showingResult) {
           if (isOperator(value)) {
             userInput = answer.replaceAll(',', '') + value;
             answer = '';
             showingResult = false;
+            continueFromResult = false;
+            previousExpression =
+                ''; // Clear previous expression when starting new calculation
           } else {
-            userInput = value;
+            if (continueFromResult) {
+              userInput = answer.replaceAll(',', '') + value;
+            } else {
+              userInput = value;
+            }
             answer = '';
             showingResult = false;
+            previousExpression = ''; // Clear previous expression
           }
         } else {
           if (isOperator(value)) {
             if (!isLastCharOperator() && userInput.isNotEmpty) {
               userInput += value;
+            }
+          } else if (value == ".") {
+            // Handle decimal point
+            if (userInput.isEmpty || isLastCharOperator()) {
+              userInput += "0."; // Add leading zero
+            } else {
+              // Check if current number already has a decimal
+              String currentNumber = userInput.split(RegExp(r'[+\-x/%]')).last;
+              if (!currentNumber.contains('.')) {
+                userInput += value;
+              }
             }
           } else {
             String unformatted = userInput.replaceAll(',', '') + value;
@@ -154,24 +239,12 @@ class _HomePageState extends State<HomePage> {
           }
         }
 
-        // Calculate and format live result
-        if (userInput.isNotEmpty && !isLastCharOperator()) {
-          String unformattedInput = userInput.replaceAll(',', '');
-          liveResult = formatNumber(calculateResult(unformattedInput));
-        } else {
-          liveResult = '';
-        }
+        updateLiveResult();
       }
 
-      // Format the userInput if it's a number
-      if (!showingResult && userInput.isNotEmpty && !isLastCharOperator()) {
-        String lastNumber = userInput.split(RegExp(r'[+\-x/%]')).last;
-        if (lastNumber.isNotEmpty) {
-          String formatted = formatNumber(lastNumber);
-          userInput =
-              userInput.substring(0, userInput.length - lastNumber.length) +
-                  formatted;
-        }
+      // Format the userInput numbers
+      if (!showingResult && userInput.isNotEmpty) {
+        userInput = formatExpression(userInput);
       }
     });
   }
@@ -673,29 +746,6 @@ class _HomePageState extends State<HomePage> {
       color: index == 18 ? Colors.orange : AppColors.getButtonColor(isDarkMode),
       borderRadius: borderRadius,
     );
-  }
-
-  String calculateResult(String input) {
-    input = input.replaceAll('x', '*');
-    try {
-      Parser p = Parser();
-      Expression exp = p.parse(input);
-      ContextModel cm = ContextModel();
-      double eval = exp.evaluate(EvaluationType.REAL, cm);
-
-      // Format the result to remove trailing zeros
-      String result = eval.toString();
-      if (result.contains('.')) {
-        result = result.replaceAll(RegExp(r'([.]*?)0+$'), '');
-        if (result.endsWith('.')) {
-          result = result.substring(0, result.length - 1);
-        }
-      }
-
-      return result;
-    } catch (e) {
-      return "Error";
-    }
   }
 
   void _toggleTheme() {
