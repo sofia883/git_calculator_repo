@@ -1,5 +1,4 @@
 import 'package:calculator_app/common_imports.dart';
-import 'package:calculator_app/screens/equation_solver_page.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -292,69 +291,43 @@ class _HomePageState extends State<HomePage> {
     '=',
     '+',
   ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.65, // 65% of screen width
+        width: MediaQuery.of(context).size.width * 0.65,
         child: showHistoryDrawer(context),
       ),
       backgroundColor: AppColors.getBackgroundColor(isDarkMode),
       key: _scaffoldKey,
       appBar: AppBar(
-        automaticallyImplyLeading: false, // Remove default drawer icon
+        automaticallyImplyLeading: false,
         forceMaterialTransparency: true,
         toolbarHeight: 80,
+        leading: IconButton(
+          icon: Icon(
+            isDarkMode ? Icons.sunny : Icons.dark_mode,
+            color: isDarkMode
+                ? Colors.orange
+                : const Color.fromARGB(255, 46, 54, 58),
+            size: 24,
+          ),
+          onPressed: _toggleTheme,
+        ),
         actions: [
           IconButton(
-  icon: Icon(Icons.calculate), // Use any icon you prefer
-  onPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => EquationSolverPage()),
-    );
-  },
-),
-
-          PopupMenuButton<String>(
-            icon: Icon(Icons.list,
-                color: isDarkMode ? Colors.white : Colors.black), // File icon
-            onSelected: (String value) {
-              if (value == 'theme') {
-                _toggleTheme();
-              } else if (value == 'history') {
-                _scaffoldKey.currentState?.openDrawer(); // Open history drawer
-              }
+            icon: Icon(
+              Icons.history,
+              color: isDarkMode ? Colors.white : Colors.black,
+              size: 24,
+            ),
+            onPressed: () {
+              _scaffoldKey.currentState?.openDrawer();
             },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(
-                value: 'theme',
-                child: Row(
-                  children: [
-                    Icon(
-                      isDarkMode ? Icons.sunny : Icons.dark_mode,
-                      color: isDarkMode ? Colors.orange : Colors.black,
-                    ),
-                    SizedBox(width: 10),
-                    Text(isDarkMode ? 'Light Mode' : 'Dark Mode'),
-                  ],
-                ),
-              ),
-              PopupMenuItem<String>(
-                value: 'history',
-                child: Row(
-                  children: [
-                    Icon(Icons.history, color: Colors.blue),
-                    SizedBox(width: 10),
-                    Text('History'),
-                  ],
-                ),
-              ),
-            ],
           ),
+          SizedBox(width: 8), // Small spacing before screen edge
         ],
-        backgroundColor: Colors.transparent, // Transparent AppBar
+        backgroundColor: Colors.transparent,
       ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -647,7 +620,6 @@ class _HomePageState extends State<HomePage> {
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: <Widget>[
-          // (Optional) Previous expression or history part
           if (previousExpression.isNotEmpty)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -672,54 +644,18 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           SizedBox(height: 10),
-          // AnimatedSwitcher wraps your CalculatorDisplay.
-          AnimatedSwitcher(
-            duration: Duration(milliseconds: 300),
-            switchInCurve: Curves.easeInOut,
-            switchOutCurve: Curves.easeInOut,
-            // This layoutBuilder ensures only the current widget is shown during transition.
-            layoutBuilder:
-                (Widget? currentChild, List<Widget> previousChildren) {
-              return currentChild ?? Container();
-            },
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              // A subtle slide transition (from below) that gives a smooth feel.
-              return SlideTransition(
-                position: Tween<Offset>(
-                  begin: Offset(0, 0.5),
-                  end: Offset(0, 0),
-                ).animate(animation),
-                child: child,
-              );
-            },
-            // Change the key whenever the content changes.
-            child: CalculatorDisplay(
-              key: ValueKey(showingResult ? answer : userInput),
-              text: showingResult ? answer : userInput,
-              maxFontSize: 60,
-              textColor: AppColors.getDisplayTextColor(isDarkMode),
-              isUserInput: true,
-            ),
+          CalculatorDisplay(
+            text: showingResult ? answer : userInput,
+            maxFontSize: 60,
+            textColor: AppColors.getDisplayTextColor(isDarkMode),
+            isUserInput: true,
           ),
-          // Optionally, you can also animate the live result display
           if (!showingResult && liveResult.isNotEmpty)
-            AnimatedSwitcher(
-              duration: Duration(milliseconds: 300),
-              layoutBuilder:
-                  (Widget? currentChild, List<Widget> previousChildren) {
-                return currentChild ?? Container();
-              },
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: child,
-              ),
-              child: Text(
-                '= ' + liveResult,
-                key: ValueKey(liveResult),
-                style: TextStyle(
-                  fontSize: 24,
-                  color: Colors.grey,
-                ),
+            Text(
+              '= ' + liveResult,
+              style: TextStyle(
+                fontSize: 24,
+                color: Colors.grey,
               ),
             ),
         ],

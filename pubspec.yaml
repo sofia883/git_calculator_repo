@@ -48,8 +48,7 @@ dev_dependencies:
   shared_preferences: ^2.3.2 
   math_expressions: ^2.6.0 
   expressions: ^0.2.5+1
-  image_picker: ^1.1.2
-  google_mlkit_text_recognition: ^0.14.0
+  google_fonts: ^6.2.1
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
